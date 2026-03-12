@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Executify Frontend</title>
+  </head>
+  <body>
+    <h1>Executify Frontend</h1>
+    <p>This is where your frontend assets (React/Vue/Static) live.</p>
+    <div id="api-response"></div>
+
+    <script>
+      fetch("/api/hello")
+        .then((res) => res.json())
+        .then((data) => {
+          document.getElementById("api-response").innerText = data.message;
+        })
+        .catch((err) => console.error(err));
+    </script>
+  </body>
+</html>
