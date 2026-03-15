@@ -1,10 +1,16 @@
 package config
 
-import "os"
+import (
+	"os"
+	"time"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+)
 
 type Config struct {
 	ServerPort  string
-	DatabaseURL string
+	MySQLConfig MySQLConfig
 }
 
 func LoadConfig() Config {
@@ -12,14 +18,26 @@ func LoadConfig() Config {
 	if port == "" {
 		port = "8080"
 	}
-
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "mongodb://localhost:27017"
-	}
+	mysqlConf := LoadMySQLConfig()
 
 	return Config{
 		ServerPort:  port,
-		DatabaseURL: dbURL,
+		MySQLConfig: mysqlConf,
 	}
+}
+
+func NewMySQLConnection(config Config) *gorm.DB {
+	sqlDB, err := gorm.Open(mysql.Open(config.MySQLConfig.GetDSN()), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
+	}
+	db, err := sqlDB.DB()
+	if err != nil {
+		panic("failed to get database")
+	}
+	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(20)
+	db.SetConnMaxIdleTime(8 * time.Minute)
+
+	return sqlDB
 }
