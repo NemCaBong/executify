@@ -26,5 +26,5 @@ func LoadMySQLConfig() MySQLConfig {
 }
 
 func (c *MySQLConfig) GetDSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", c.User, c.Password, c.Host, c.Port, c.Database, c.Options)
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", c.User, c.Password, c.Host, c.Port, c.Database, c.Options)
 }
