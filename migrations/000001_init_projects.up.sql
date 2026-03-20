@@ -21,7 +21,6 @@ CREATE TABLE IF NOT EXISTS `problems` (
     cpu_time_limit decimal,
     cpu_extra_time decimal,
     wall_time_limit decimal,
-    memory_limit int,
     stack_limit int,
     max_processes_and_or_threads int,
     expected_output_file varchar(1024) NOT NULL
