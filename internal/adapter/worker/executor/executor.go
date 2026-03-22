@@ -23,7 +23,7 @@ func (e *jobExecutor) Execute(ctx context.Context, submission *domain.Submission
 	time.Sleep(2 * time.Second)
 
 	submission.Status = domain.StatusCompleted
-	submission.Result = "Success: output matches expected"
+	submission.Stdout = "Success: output matches expected"
 
 	fmt.Printf("Finished submission %s\n", submission.ID)
 	return nil

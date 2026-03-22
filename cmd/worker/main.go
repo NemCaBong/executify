@@ -43,17 +43,17 @@ func main() {
 		case <-ticker.C:
 			// simulate fetching a job
 			job := &domain.Submission{
-				ID:        fmt.Sprintf("sub_%d", time.Now().Unix()),
-				Code:      "print('hello')",
-				Language:  "python",
-				Status:    domain.StatusPending,
-				CreatedAt: time.Now(),
+				ID:         1,
+				SourceCode: "print('hello')",
+				LanguageID: 1,
+				Status:     domain.StatusPending,
+				CreatedAt:  time.Now(),
 			}
 
-			fmt.Printf("Fetched job: %s\n", job.ID)
+			fmt.Printf("Fetched job: %d\n", job.ID)
 			err := exec.Execute(ctx, job)
 			if err != nil {
-				fmt.Printf("Error executing job %s: %v\n", job.ID, err)
+				fmt.Printf("Error executing job %d: %v\n", job.ID, err)
 			}
 		}
 	}
