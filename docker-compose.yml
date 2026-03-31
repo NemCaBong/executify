@@ -13,6 +13,17 @@ services:
       MYSQL_USER: executify
       MYSQL_PASSWORD: executify257
 
+  redis:
+    image: redis:alpine
+    container_name: executify-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - docker-redis:/data
+    restart: unless-stopped
+
 volumes:
   docker-mysql:
+    driver: local
+  docker-redis:
     driver: local
