@@ -16,7 +16,7 @@ type Config struct {
 	RedisConfig RedisConfig
 }
 
-func LoadConfig() Config {
+func Load() Config {
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "8080"

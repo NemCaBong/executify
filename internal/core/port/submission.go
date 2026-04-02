@@ -18,8 +18,3 @@ type SubmissionService interface {
 	Submit(ctx context.Context, submission *domain.Submission) error
 	GetStatus(ctx context.Context, id string) (*domain.Submission, error)
 }
-
-// JobExecutor is a driven port for executing submissions
-type JobExecutor interface {
-	Execute(ctx context.Context, submission *domain.Submission) error
-}

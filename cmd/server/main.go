@@ -11,7 +11,6 @@ import (
 
 	api_http "github.com/NemCaBong/executify/internal/adapter/api/http"
 	"github.com/NemCaBong/executify/internal/adapter/repository"
-	"github.com/NemCaBong/executify/internal/adapter/worker/executor"
 	"github.com/NemCaBong/executify/internal/config"
 	"github.com/NemCaBong/executify/internal/core/service"
 	"github.com/gin-gonic/gin"
@@ -28,13 +27,14 @@ func main() {
 			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
 
-			cfg := config.LoadConfig()
+			cfg := config.Load()
 			db := config.NewMySQLConnection(cfg)
+			redisClient := config.NewRedisClient(cfg)
+			_ = redisClient
 
 			repo := repository.NewSubmissionRepository(db)
-			exec := executor.NewJobExecutor()
 
-			submissionSvc := service.NewSubmissionService(repo, exec)
+			submissionSvc := service.NewSubmissionService(repo)
 			submissionHandler := api_http.NewSubmissionHandler(submissionSvc)
 			app := api_http.NewApp(submissionHandler)
 
@@ -61,7 +61,7 @@ func main() {
 			stop()
 			fmt.Println("shutting down gracefully, press Ctrl+C again to force")
 
-			// The context is used to inform the server it has 5 seconds to finish
+			// The context is used to inform the server it has 30 seconds to finish
 			// the request it is currently handling
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()

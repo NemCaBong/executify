@@ -8,14 +8,12 @@ import (
 )
 
 type submissionService struct {
-	repo     port.SubmissionRepository
-	executor port.JobExecutor
+	repo port.SubmissionRepository
 }
 
-func NewSubmissionService(repo port.SubmissionRepository, executor port.JobExecutor) port.SubmissionService {
+func NewSubmissionService(repo port.SubmissionRepository) port.SubmissionService {
 	return &submissionService{
-		repo:     repo,
-		executor: executor,
+		repo: repo,
 	}
 }
 
