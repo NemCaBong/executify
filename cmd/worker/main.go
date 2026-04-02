@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -46,9 +49,11 @@ func HandleRunSubmissions(_ *cobra.Command, _ []string) {
 	cache := config.NewRedisClient(cfg)
 	submissionRepo := repository.NewSubmissionRepository(db)
 	submissionSvc := service.NewSubmissionService(submissionRepo)
-	runWorker := worker.NewRunWorker(cache, submissionSvc)
+	runWorker := worker.NewRunWorker(&cfg, cache, submissionSvc)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	if err := runWorker.Execute(); err != nil {
+	if err := runWorker.Execute(ctx); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -59,9 +64,11 @@ func HandleSubmitSubmissions(_ *cobra.Command, _ []string) {
 	cache := config.NewRedisClient(cfg)
 	submissionRepo := repository.NewSubmissionRepository(db)
 	submissionSvc := service.NewSubmissionService(submissionRepo)
-	submitWorker := worker.NewSubmitWorker(cache, submissionSvc)
+	submitWorker := worker.NewSubmitWorker(&cfg, cache, submissionSvc)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	if err := submitWorker.Execute(); err != nil {
+	if err := submitWorker.Execute(ctx); err != nil {
 		log.Fatal(err)
 	}
 }

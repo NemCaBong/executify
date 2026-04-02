@@ -6,7 +6,6 @@ import (
 	"github.com/NemCaBong/executify/internal/core/domain"
 )
 
-// Submission là struct đại diện cho Table "submissions" dưới Database. (Dành riêng cho tầng GORM)
 type Submission struct {
 	ID         int        `gorm:"primaryKey;column:id;autoIncrement"`
 	LanguageID int        `gorm:"column:language_id"`
@@ -24,12 +23,10 @@ type Submission struct {
 	MemoryUsed *int       `gorm:"column:memory_used"`
 }
 
-// TableName overrides the table name used by GORM
 func (Submission) TableName() string {
 	return "submissions"
 }
 
-// ToDomain ánh xạ từ Database Model lên Core Domain Model
 func (m *Submission) ToDomain() *domain.Submission {
 	if m == nil {
 		return nil
@@ -52,7 +49,6 @@ func (m *Submission) ToDomain() *domain.Submission {
 	}
 }
 
-// FromDomain ánh xạ từ Core Domain Model sang Database Model
 func FromDomain(d *domain.Submission) *Submission {
 	if d == nil {
 		return nil

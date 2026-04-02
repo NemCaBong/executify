@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -11,9 +12,11 @@ import (
 )
 
 type Config struct {
-	ServerPort  string
-	MySQLConfig MySQLConfig
-	RedisConfig RedisConfig
+	ServerPort        string
+	RunWorkerCount    int
+	SubmitWorkerCount int
+	MySQLConfig       MySQLConfig
+	RedisConfig       RedisConfig
 }
 
 func Load() Config {
@@ -21,13 +24,26 @@ func Load() Config {
 	if port == "" {
 		port = "8080"
 	}
+	runWorkerCount := os.Getenv("RUN_WORKER_COUNT")
+	runWorkerCountInt, err := strconv.Atoi(runWorkerCount)
+	if err != nil || runWorkerCountInt <= 0 {
+		runWorkerCountInt = 1
+	}
+	submitWorkerCount := os.Getenv("SUBMIT_WORKER_COUNT")
+	submitWorkerCountInt, err := strconv.Atoi(submitWorkerCount)
+	if err != nil || submitWorkerCountInt <= 0 {
+		submitWorkerCountInt = 1
+	}
+
 	mysqlConf := LoadMySQLConfig()
 	redisConf := LoadRedisConfig()
 
 	return Config{
-		ServerPort:  port,
-		MySQLConfig: mysqlConf,
-		RedisConfig: redisConf,
+		ServerPort:        port,
+		RunWorkerCount:    runWorkerCountInt,
+		SubmitWorkerCount: submitWorkerCountInt,
+		MySQLConfig:       mysqlConf,
+		RedisConfig:       redisConf,
 	}
 }
 

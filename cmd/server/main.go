@@ -9,7 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	api_http "github.com/NemCaBong/executify/internal/adapter/api/http"
+	api_http "github.com/NemCaBong/executify/internal/adapter/http"
+	http_handler "github.com/NemCaBong/executify/internal/adapter/http/handler"
 	"github.com/NemCaBong/executify/internal/adapter/repository"
 	"github.com/NemCaBong/executify/internal/config"
 	"github.com/NemCaBong/executify/internal/core/service"
@@ -35,7 +36,7 @@ func main() {
 			repo := repository.NewSubmissionRepository(db)
 
 			submissionSvc := service.NewSubmissionService(repo)
-			submissionHandler := api_http.NewSubmissionHandler(submissionSvc)
+			submissionHandler := http_handler.NewSubmissionHandler(submissionSvc)
 			app := api_http.NewApp(submissionHandler)
 
 			r := setupRouter(app)

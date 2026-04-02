@@ -1,6 +1,7 @@
 package port
 
-// JobExecutor is a driven port for executing submissions
+import "context"
+
 type JobExecutor interface {
-	Execute() error
+	Execute(ctx context.Context) error
 }
