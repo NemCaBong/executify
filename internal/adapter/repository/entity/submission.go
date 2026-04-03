@@ -1,9 +1,9 @@
-package model
+package entity
 
 import (
 	"time"
 
-	"github.com/NemCaBong/executify/internal/core/domain"
+	"github.com/NemCaBong/executify/internal/domain"
 )
 
 type Submission struct {

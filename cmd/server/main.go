@@ -12,8 +12,8 @@ import (
 	api_http "github.com/NemCaBong/executify/internal/adapter/http"
 	http_handler "github.com/NemCaBong/executify/internal/adapter/http/handler"
 	"github.com/NemCaBong/executify/internal/adapter/repository"
+	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
-	"github.com/NemCaBong/executify/internal/core/service"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 )
@@ -35,8 +35,8 @@ func main() {
 
 			repo := repository.NewSubmissionRepository(db)
 
-			submissionSvc := service.NewSubmissionService(repo)
-			submissionHandler := http_handler.NewSubmissionHandler(submissionSvc)
+			submissionUC := submission.NewUsecase(repo)
+			submissionHandler := http_handler.NewSubmissionHandler(submissionUC)
 			app := api_http.NewApp(submissionHandler)
 
 			r := setupRouter(app)

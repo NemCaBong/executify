@@ -6,22 +6,23 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NemCaBong/executify/internal/application/job"
+	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
-	"github.com/NemCaBong/executify/internal/core/port"
 	"github.com/redis/go-redis/v9"
 )
 
 type runWorker struct {
-	cfg           *config.Config
-	cache         *redis.Client
-	submissionSvc port.SubmissionService
+	cfg          *config.Config
+	cache        *redis.Client
+	submissionUC *submission.Usecase
 }
 
-func NewRunWorker(cfg *config.Config, cache *redis.Client, submissionSvc port.SubmissionService) port.JobExecutor {
+func NewRunWorker(cfg *config.Config, cache *redis.Client, submissionUC *submission.Usecase) job.Executor {
 	return &runWorker{
-		cfg:           cfg,
-		cache:         cache,
-		submissionSvc: submissionSvc,
+		cfg:          cfg,
+		cache:        cache,
+		submissionUC: submissionUC,
 	}
 }
 

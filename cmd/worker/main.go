@@ -12,8 +12,8 @@ import (
 
 	"github.com/NemCaBong/executify/internal/adapter/repository"
 	"github.com/NemCaBong/executify/internal/adapter/worker"
+	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
-	"github.com/NemCaBong/executify/internal/core/service"
 )
 
 func init() {
@@ -48,8 +48,8 @@ func HandleRunSubmissions(_ *cobra.Command, _ []string) {
 	db := config.NewMySQLConnection(cfg)
 	cache := config.NewRedisClient(cfg)
 	submissionRepo := repository.NewSubmissionRepository(db)
-	submissionSvc := service.NewSubmissionService(submissionRepo)
-	runWorker := worker.NewRunWorker(&cfg, cache, submissionSvc)
+	submissionUC := submission.NewUsecase(submissionRepo)
+	runWorker := worker.NewRunWorker(&cfg, cache, submissionUC)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -63,8 +63,8 @@ func HandleSubmitSubmissions(_ *cobra.Command, _ []string) {
 	db := config.NewMySQLConnection(cfg)
 	cache := config.NewRedisClient(cfg)
 	submissionRepo := repository.NewSubmissionRepository(db)
-	submissionSvc := service.NewSubmissionService(submissionRepo)
-	submitWorker := worker.NewSubmitWorker(&cfg, cache, submissionSvc)
+	submissionUC := submission.NewUsecase(submissionRepo)
+	submitWorker := worker.NewSubmitWorker(&cfg, cache, submissionUC)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

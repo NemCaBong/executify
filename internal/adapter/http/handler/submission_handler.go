@@ -3,18 +3,18 @@ package handler
 import (
 	"net/http"
 
-	"github.com/NemCaBong/executify/internal/core/domain"
-	"github.com/NemCaBong/executify/internal/core/port"
+	"github.com/NemCaBong/executify/internal/application/submission"
+	"github.com/NemCaBong/executify/internal/domain"
 	"github.com/gin-gonic/gin"
 )
 
 type SubmissionHandler struct {
-	submissionSvc port.SubmissionService
+	submissionUC *submission.Usecase
 }
 
-func NewSubmissionHandler(submissionSvc port.SubmissionService) *SubmissionHandler {
+func NewSubmissionHandler(submissionUC *submission.Usecase) *SubmissionHandler {
 	return &SubmissionHandler{
-		submissionSvc: submissionSvc,
+		submissionUC: submissionUC,
 	}
 }
 
@@ -25,7 +25,7 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 		return
 	}
 
-	if err := h.submissionSvc.Submit(c.Request.Context(), &submission); err != nil {
+	if err := h.submissionUC.Submit(c.Request.Context(), &submission); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -35,7 +35,7 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 
 func (h *SubmissionHandler) GetStatus(c *gin.Context) {
 	id := c.Param("id")
-	submission, err := h.submissionSvc.GetStatus(c.Request.Context(), id)
+	submission, err := h.submissionUC.GetStatus(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return

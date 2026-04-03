@@ -1,7 +1,7 @@
-package port
+package job
 
 import "context"
 
-type JobExecutor interface {
+type Executor interface {
 	Execute(ctx context.Context) error
 }
