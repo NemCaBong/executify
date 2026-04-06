@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NemCaBong/executify/internal/application/job"
+	"github.com/NemCaBong/executify/internal/adapter/queue"
 	"github.com/NemCaBong/executify/internal/application/submission"
+	"github.com/NemCaBong/executify/internal/application/worker"
 	"github.com/NemCaBong/executify/internal/config"
 	"github.com/redis/go-redis/v9"
 )
@@ -18,7 +19,7 @@ type runWorker struct {
 	submissionUC *submission.Usecase
 }
 
-func NewRunWorker(cfg *config.Config, cache *redis.Client, submissionUC *submission.Usecase) job.Executor {
+func NewRunWorker(cfg *config.Config, cache *redis.Client, submissionUC *submission.Usecase) worker.Executor {
 	return &runWorker{
 		cfg:          cfg,
 		cache:        cache,
@@ -65,4 +66,13 @@ func (w *runWorker) Execute(ctx context.Context) error {
 
 	wg.Wait()
 	return nil
+}
+
+func (w *runWorker) HandleRunSubmission(ctx context.Context, workerID int, jobData string) {
+	var msg queue.SubmissionMessage
+	if err := msg.Unmarshal(jobData); err != nil {
+		log.Printf("Worker %d: Error unmarshaling job data: %v", workerID, err)
+		return
+	}
+	// fail where update it at that in order for a job to scan db in order to know which one is pending and then see which thing we need to fix
 }
