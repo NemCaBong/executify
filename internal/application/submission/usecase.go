@@ -16,15 +16,13 @@ func NewUsecase(repo Repository) *Usecase {
 	}
 }
 
-func (u *Usecase) Submit(ctx context.Context, submission *domain.Submission) error {
-	submission.Status = domain.StatusPending
+func (u *Usecase) Submit(ctx context.Context, input *CreateSubmissionInput) (int, error) {
+	submission := input.ToDomain()
 	if err := u.repo.Save(ctx, submission); err != nil {
-		return err
+		return 0, err
 	}
 
-	// In a real scenario, this might be sent to a queue
-	// For now, we call the executor (which could be the worker)
-	return nil
+	return submission.ID, nil
 }
 
 func (u *Usecase) GetStatus(ctx context.Context, id string) (*domain.Submission, error) {

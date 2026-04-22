@@ -3,8 +3,9 @@ package handler
 import (
 	"net/http"
 
+	"github.com/NemCaBong/executify/internal/adapter/http/request"
+	"github.com/NemCaBong/executify/internal/adapter/http/response"
 	"github.com/NemCaBong/executify/internal/application/submission"
-	"github.com/NemCaBong/executify/internal/domain"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,18 +20,25 @@ func NewSubmissionHandler(submissionUC *submission.Usecase) *SubmissionHandler {
 }
 
 func (h *SubmissionHandler) Submit(c *gin.Context) {
-	var submission domain.Submission
-	if err := c.ShouldBindJSON(&submission); err != nil {
+	var req request.SubmitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.submissionUC.Submit(c.Request.Context(), &submission); err != nil {
+	input := submission.CreateSubmissionInput{
+		LanguageID: req.LanguageID,
+		SourceCode: req.SourceCode,
+		ProblemID:  req.ProblemID,
+	}
+
+	id, err := h.submissionUC.Submit(c.Request.Context(), &input)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusAccepted, submission)
+	c.JSON(http.StatusAccepted, response.NewSubmitResponse(id))
 }
 
 func (h *SubmissionHandler) GetStatus(c *gin.Context) {

@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS `submissions` (
     exit_signal int,
     finished_at timestamp,
     time_used int,
-    memory_used int
+    memory_used int,
+    type varchar(255) NOT NULL,
     -- FOREIGN KEY (language_id) REFERENCES languages(id),
     -- FOREIGN KEY (problem_id) REFERENCES problems(id)
 );

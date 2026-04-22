@@ -4,11 +4,12 @@ import "time"
 
 type SubmissionStatus string
 
+// status flow: SUBMITTED -> PROCESSING (in queue) -> COMPLETED | FAILED
 const (
-	StatusPending   SubmissionStatus = "PENDING"
-	StatusRunning   SubmissionStatus = "RUNNING"
-	StatusCompleted SubmissionStatus = "COMPLETED"
-	StatusFailed    SubmissionStatus = "FAILED"
+	StatusCompleted  SubmissionStatus = "COMPLETED"
+	StatusFailed     SubmissionStatus = "FAILED"
+	StatusProcessing SubmissionStatus = "PROCESSING"
+	StatusSubmitted  SubmissionStatus = "SUBMITTED"
 )
 
 type Submission struct {
