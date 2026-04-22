@@ -6,9 +6,9 @@ type SubmissionMessage struct {
 	SubmissionID int `json:"submission_id"`
 }
 
-func (m SubmissionMessage) String() string {
+func (m SubmissionMessage) ToBytes() []byte {
 	data, _ := json.Marshal(m)
-	return string(data)
+	return data
 }
 
 func (m *SubmissionMessage) Unmarshal(data string) error {

@@ -11,6 +11,7 @@ import (
 
 	api_http "github.com/NemCaBong/executify/internal/adapter/http"
 	http_handler "github.com/NemCaBong/executify/internal/adapter/http/handler"
+	"github.com/NemCaBong/executify/internal/adapter/queue/redis"
 	"github.com/NemCaBong/executify/internal/adapter/repository"
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
@@ -31,12 +32,12 @@ func main() {
 			cfg := config.Load()
 			db := config.NewMySQLConnection(cfg)
 			redisClient := config.NewRedisClient(cfg)
-			_ = redisClient
 
-			repo := repository.NewSubmissionRepository(db)
+			submissionRepo := repository.NewSubmissionRepository(db)
+			redisProducer := redis.NewRedisProducer(redisClient)
 
-			submissionUC := submission.NewUsecase(repo)
-			submissionHandler := http_handler.NewSubmissionHandler(submissionUC)
+			submissionUC := submission.NewUsecase(submissionRepo)
+			submissionHandler := http_handler.NewSubmissionHandler(&cfg, submissionUC, redisProducer)
 			app := api_http.NewApp(submissionHandler)
 
 			r := setupRouter(app)

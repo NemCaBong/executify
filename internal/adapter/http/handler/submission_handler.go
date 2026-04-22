@@ -5,17 +5,24 @@ import (
 
 	"github.com/NemCaBong/executify/internal/adapter/http/request"
 	"github.com/NemCaBong/executify/internal/adapter/http/response"
+	"github.com/NemCaBong/executify/internal/adapter/queue"
+	appqueue "github.com/NemCaBong/executify/internal/application/queue"
 	"github.com/NemCaBong/executify/internal/application/submission"
+	"github.com/NemCaBong/executify/internal/config"
 	"github.com/gin-gonic/gin"
 )
 
 type SubmissionHandler struct {
-	submissionUC *submission.Usecase
+	cfg           *config.Config
+	submissionUC  *submission.Usecase
+	queueProducer appqueue.Producer
 }
 
-func NewSubmissionHandler(submissionUC *submission.Usecase) *SubmissionHandler {
+func NewSubmissionHandler(cfg *config.Config, submissionUC *submission.Usecase, queueProducer appqueue.Producer) *SubmissionHandler {
 	return &SubmissionHandler{
-		submissionUC: submissionUC,
+		cfg:           cfg,
+		submissionUC:  submissionUC,
+		queueProducer: queueProducer,
 	}
 }
 
@@ -37,7 +44,11 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
+	err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.SubmitQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusAccepted, response.NewSubmitResponse(id))
 }
 

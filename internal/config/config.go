@@ -17,6 +17,8 @@ type Config struct {
 	SubmitWorkerCount int
 	MySQLConfig       MySQLConfig
 	RedisConfig       RedisConfig
+	RunQueueName      string
+	SubmitQueueName   string
 }
 
 func Load() Config {
@@ -34,6 +36,14 @@ func Load() Config {
 	if err != nil || submitWorkerCountInt <= 0 {
 		submitWorkerCountInt = 1
 	}
+	runQueueName := os.Getenv("RUN_QUEUE_NAME")
+	if runQueueName == "" {
+		runQueueName = "run_queue"
+	}
+	submitQueueName := os.Getenv("SUBMIT_QUEUE_NAME")
+	if submitQueueName == "" {
+		submitQueueName = "submit_queue"
+	}
 
 	mysqlConf := LoadMySQLConfig()
 	redisConf := LoadRedisConfig()
@@ -44,6 +54,8 @@ func Load() Config {
 		SubmitWorkerCount: submitWorkerCountInt,
 		MySQLConfig:       mysqlConf,
 		RedisConfig:       redisConf,
+		RunQueueName:      runQueueName,
+		SubmitQueueName:   submitQueueName,
 	}
 }
 
