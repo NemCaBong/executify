@@ -21,6 +21,10 @@ type Submission struct {
 	FinishedAt *time.Time `gorm:"column:finished_at"`
 	TimeUsed   *int       `gorm:"column:time_used"`
 	MemoryUsed *int       `gorm:"column:memory_used"`
+
+	// Relationships
+	Language *Language `gorm:"foreignKey:LanguageID;references:ID"`
+	Problem  *Problem  `gorm:"foreignKey:ProblemID;references:ID"`
 }
 
 func (Submission) TableName() string {
@@ -68,5 +72,16 @@ func FromDomain(d *domain.Submission) *Submission {
 		FinishedAt: d.FinishedAt,
 		TimeUsed:   d.TimeUsed,
 		MemoryUsed: d.MemoryUsed,
+	}
+}
+
+func (m *Submission) ToDomainWithDetails() *domain.SubmissionWithDetails {
+	if m == nil {
+		return nil
+	}
+	return &domain.SubmissionWithDetails{
+		Submission: *m.ToDomain(),
+		Language:   *m.Language.ToDomain(),
+		Problem:    *m.Problem.ToDomain(),
 	}
 }

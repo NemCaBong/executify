@@ -28,3 +28,9 @@ type Submission struct {
 	TimeUsed   *int             `json:"time_used"`
 	MemoryUsed *int             `json:"memory_used"`
 }
+
+type SubmissionWithDetails struct {
+	Submission
+	Language Language `json:"language"`
+	Problem  Problem  `json:"problem"`
+}

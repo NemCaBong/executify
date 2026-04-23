@@ -35,7 +35,7 @@ func (r *submissionRepository) Save(ctx context.Context, submission *domain.Subm
 	return nil
 }
 
-func (r *submissionRepository) GetByID(ctx context.Context, id string) (*domain.Submission, error) {
+func (r *submissionRepository) GetByID(ctx context.Context, id int) (*domain.Submission, error) {
 	var dbEntity entity.Submission
 	// GORM's First method retrieves the first record
 	err := r.db.WithContext(ctx).First(&dbEntity, "id = ?", id).Error
@@ -51,4 +51,16 @@ func (r *submissionRepository) Update(ctx context.Context, submission *domain.Su
 	dbEntity := entity.FromDomain(submission)
 	// GORM's Save method updates all fields of the record
 	return r.db.WithContext(ctx).Save(dbEntity).Error
+}
+
+func (r *submissionRepository) GetWithDetailsByID(ctx context.Context, id int) (*domain.SubmissionWithDetails, error) {
+	var dbEntity entity.Submission
+	// GORM's First method retrieves the first record
+	err := r.db.WithContext(ctx).Joins("Language").Joins("Problem").First(&dbEntity, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Map ngược từ dữ liệu DB thành Domain gửi ra ngoài
+	return dbEntity.ToDomainWithDetails(), nil
 }

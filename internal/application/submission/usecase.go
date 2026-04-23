@@ -25,6 +25,10 @@ func (u *Usecase) Submit(ctx context.Context, input *CreateSubmissionInput) (int
 	return submission.ID, nil
 }
 
-func (u *Usecase) GetStatus(ctx context.Context, id string) (*domain.Submission, error) {
+func (u *Usecase) GetByID(ctx context.Context, id int) (*domain.Submission, error) {
 	return u.repo.GetByID(ctx, id)
+}
+
+func (u *Usecase) GetWithDetailsByID(ctx context.Context, id int) (*domain.SubmissionWithDetails, error) {
+	return nil, nil
 }

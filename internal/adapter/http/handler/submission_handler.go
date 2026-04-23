@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/NemCaBong/executify/internal/adapter/http/request"
 	"github.com/NemCaBong/executify/internal/adapter/http/response"
@@ -53,8 +54,13 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 }
 
 func (h *SubmissionHandler) GetStatus(c *gin.Context) {
-	id := c.Param("id")
-	submission, err := h.submissionUC.GetStatus(c.Request.Context(), id)
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	submission, err := h.submissionUC.GetByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return

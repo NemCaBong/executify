@@ -74,5 +74,11 @@ func (w *runWorker) HandleRunSubmission(ctx context.Context, workerID int, jobDa
 		log.Printf("Worker %d: Error unmarshaling job data: %v", workerID, err)
 		return
 	}
+	submissionDetail, err := w.submissionUC.GetWithDetailsByID(ctx, msg.SubmissionID)
+	if err != nil {
+		log.Printf("Worker %d: Error getting submission: %v", workerID, err)
+		return
+	}
+	_ = submissionDetail
 	// fail where update it at that in order for a job to scan db in order to know which one is pending and then see which thing we need to fix
 }
