@@ -3,6 +3,7 @@ module github.com/NemCaBong/executify
 go 1.25.0
 
 require (
+	github.com/NemCaBong/go-isolate v0.0.0-20260424100311-37afc1929903
 	github.com/gin-gonic/gin v1.12.0
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/spf13/cobra v1.10.2
