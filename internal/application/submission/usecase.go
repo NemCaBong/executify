@@ -30,5 +30,9 @@ func (u *Usecase) GetByID(ctx context.Context, id int) (*domain.Submission, erro
 }
 
 func (u *Usecase) GetWithDetailsByID(ctx context.Context, id int) (*domain.SubmissionWithDetails, error) {
-	return nil, nil
+	return u.repo.GetWithDetailsByID(ctx, id)
+}
+
+func (u *Usecase) Update(ctx context.Context, submission *domain.Submission) error {
+	return u.repo.Update(ctx, submission)
 }

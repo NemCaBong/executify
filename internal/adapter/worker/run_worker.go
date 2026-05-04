@@ -10,6 +10,7 @@ import (
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/application/worker"
 	"github.com/NemCaBong/executify/internal/config"
+	"github.com/NemCaBong/executify/internal/domain"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -43,7 +44,7 @@ func (w *runWorker) Execute(ctx context.Context) error {
 					return
 				default:
 				}
-				// BLPop blocks waiting for an element. 0 means no timeout.
+
 				result, err := w.cache.BLPop(ctx, 0, queueKey).Result()
 				if err != nil {
 					if ctx.Err() != nil {
@@ -57,8 +58,8 @@ func (w *runWorker) Execute(ctx context.Context) error {
 				if len(result) == 2 {
 					jobData := result[1]
 					log.Printf("Worker %d: Picked up job from run queue: %s", workerID, jobData)
-					// TODO: Add actual job unmarshaling and processing logic here
-					// actual job processing here need to use new context to not get cancel while running
+					// Use a fresh context so a shutdown doesn't abort an in-flight execution.
+					w.HandleRunSubmission(context.Background(), workerID, jobData)
 				}
 			}
 		}(i)
@@ -74,11 +75,24 @@ func (w *runWorker) HandleRunSubmission(ctx context.Context, workerID int, jobDa
 		log.Printf("Worker %d: Error unmarshaling job data: %v", workerID, err)
 		return
 	}
+
 	submissionDetail, err := w.submissionUC.GetWithDetailsByID(ctx, msg.SubmissionID)
 	if err != nil {
-		log.Printf("Worker %d: Error getting submission: %v", workerID, err)
+		log.Printf("Worker %d: Error getting submission %d: %v", workerID, msg.SubmissionID, err)
 		return
 	}
-	_ = submissionDetail
-	// fail where update it at that in order for a job to scan db in order to know which one is pending and then see which thing we need to fix
+
+	runner := domain.NewCodeRunner(submissionDetail, &submissionDetail.Stdin)
+	if err := runner.Execute(ctx); err != nil {
+		log.Printf("Worker %d: Execution error for submission %d: %v", workerID, msg.SubmissionID, err)
+		submissionDetail.Status = domain.StatusFailed
+		submissionDetail.Stderr = err.Error()
+	}
+
+	now := time.Now()
+	submissionDetail.FinishedAt = &now
+
+	if err := w.submissionUC.Update(ctx, &submissionDetail.Submission); err != nil {
+		log.Printf("Worker %d: Failed to update submission %d: %v", workerID, msg.SubmissionID, err)
+	}
 }
