@@ -25,6 +25,15 @@ func (u *Usecase) Submit(ctx context.Context, input *CreateSubmissionInput) (int
 	return submission.ID, nil
 }
 
+func (u *Usecase) Run(ctx context.Context, input *CreateRunInput) (int, error) {
+	submission := input.ToDomain()
+	if err := u.repo.Save(ctx, submission); err != nil {
+		return 0, err
+	}
+
+	return submission.ID, nil
+}
+
 func (u *Usecase) GetByID(ctx context.Context, id int) (*domain.Submission, error) {
 	return u.repo.GetByID(ctx, id)
 }

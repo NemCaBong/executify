@@ -53,6 +53,35 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 	c.JSON(http.StatusAccepted, response.NewSubmitResponse(id))
 }
 
+func (h *SubmissionHandler) Run(c *gin.Context) {
+	var req request.RunRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	input := submission.CreateRunInput{
+		LanguageID: req.LanguageID,
+		ProblemID:  req.ProblemID,
+		SourceCode: req.SourceCode,
+		Stdin:      req.Stdin,
+	}
+
+	id, err := h.submissionUC.Run(c.Request.Context(), &input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.RunQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, response.NewSubmitResponse(id))
+}
+
 func (h *SubmissionHandler) GetStatus(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
