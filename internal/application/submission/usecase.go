@@ -2,36 +2,61 @@ package submission
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
+	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/domain"
 )
 
 type Usecase struct {
-	repo Repository
+	repo        Repository
+	problemRepo problem.Repository
 }
 
-func NewUsecase(repo Repository) *Usecase {
+func NewUsecase(repo Repository, problemRepo problem.Repository) *Usecase {
 	return &Usecase{
-		repo: repo,
+		repo:        repo,
+		problemRepo: problemRepo,
 	}
+}
+
+func (u *Usecase) buildFullSourceCode(ctx context.Context, problemID int, userCode string) (string, error) {
+	prob, err := u.problemRepo.GetByID(ctx, problemID)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch problem %d: %w", problemID, err)
+	}
+	return strings.Replace(prob.WrapperCode, "{{.}}", userCode, 1), nil
 }
 
 func (u *Usecase) Submit(ctx context.Context, input *CreateSubmissionInput) (int, error) {
-	submission := input.ToDomain()
-	if err := u.repo.Save(ctx, submission); err != nil {
+	fullCode, err := u.buildFullSourceCode(ctx, input.ProblemID, input.SourceCode)
+	if err != nil {
+		return 0, err
+	}
+	input.SourceCode = fullCode
+
+	sub := input.ToDomain()
+	if err := u.repo.Save(ctx, sub); err != nil {
 		return 0, err
 	}
 
-	return submission.ID, nil
+	return sub.ID, nil
 }
 
 func (u *Usecase) Run(ctx context.Context, input *CreateRunInput) (int, error) {
-	submission := input.ToDomain()
-	if err := u.repo.Save(ctx, submission); err != nil {
+	fullCode, err := u.buildFullSourceCode(ctx, input.ProblemID, input.SourceCode)
+	if err != nil {
+		return 0, err
+	}
+	input.SourceCode = fullCode
+
+	sub := input.ToDomain()
+	if err := u.repo.Save(ctx, sub); err != nil {
 		return 0, err
 	}
 
-	return submission.ID, nil
+	return sub.ID, nil
 }
 
 func (u *Usecase) GetByID(ctx context.Context, id int) (*domain.Submission, error) {

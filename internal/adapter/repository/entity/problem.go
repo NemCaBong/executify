@@ -24,6 +24,8 @@ type Problem struct {
 	StackLimit               *int      `gorm:"column:stack_limit"`
 	MaxProcessesAndOrThreads *int      `gorm:"column:max_processes_and_or_threads"`
 	ExpectedOutputFile       string    `gorm:"column:expected_output_file"`
+	TemplateCode             string    `gorm:"column:template_code"`
+	WrapperCode              string    `gorm:"column:wrapper_code"`
 }
 
 func (Problem) TableName() string {
@@ -52,5 +54,7 @@ func (p *Problem) ToDomain() *domain.Problem {
 		StackLimit:               p.StackLimit,
 		MaxProcessesAndOrThreads: p.MaxProcessesAndOrThreads,
 		ExpectedOutputFile:       p.ExpectedOutputFile,
+		TemplateCode:             p.TemplateCode,
+		WrapperCode:              p.WrapperCode,
 	}
 }

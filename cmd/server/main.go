@@ -34,9 +34,10 @@ func main() {
 			redisClient := config.NewRedisClient(cfg)
 
 			submissionRepo := repository.NewSubmissionRepository(db)
+			problemRepo := repository.NewProblemRepository(db)
 			redisProducer := redis.NewRedisProducer(redisClient)
 
-			submissionUC := submission.NewUsecase(submissionRepo)
+			submissionUC := submission.NewUsecase(submissionRepo, problemRepo)
 			submissionHandler := http_handler.NewSubmissionHandler(&cfg, submissionUC, redisProducer)
 			app := api_http.NewApp(submissionHandler)
 
@@ -87,6 +88,7 @@ func setupRouter(app *api_http.App) *gin.Engine {
 		v1 := r.Group("/api/v1")
 		{
 			v1.POST("/submissions", app.SubmissionHandler.Submit)
+			v1.POST("/submissions/run", app.SubmissionHandler.Run)
 			v1.GET("/submissions/:id", app.SubmissionHandler.GetStatus)
 		}
 	}

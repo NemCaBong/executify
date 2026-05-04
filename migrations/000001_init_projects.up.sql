@@ -23,7 +23,11 @@ CREATE TABLE IF NOT EXISTS `problems` (
     wall_time_limit decimal,
     stack_limit int,
     max_processes_and_or_threads int,
-    expected_output_file varchar(1024) NOT NULL
+    expected_output_file varchar(1024) NOT NULL,
+    -- Code shown to the user as the editable starting point
+    template_code text NOT NULL,
+    -- Full execution harness; {{.}} is replaced with the user's submitted code at runtime
+    wrapper_code text NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS `submissions` (
