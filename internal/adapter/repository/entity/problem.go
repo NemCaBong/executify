@@ -32,6 +32,28 @@ func (Problem) TableName() string {
 	return "problems"
 }
 
+func ProblemFromDomain(p *domain.Problem) *Problem {
+	return &Problem{
+		ID:                       p.ID,
+		Name:                     p.Name,
+		Description:              p.Description,
+		OutputFormat:             p.OutputFormat,
+		SampleInput:              p.SampleInput,
+		SampleOutput:             p.SampleOutput,
+		TimeLimit:                p.TimeLimit,
+		MemoryLimit:              p.MemoryLimit,
+		InputFile:                p.InputFile,
+		CPUTimeLimit:             p.CPUTimeLimit,
+		CPUExtraTime:             p.CPUExtraTime,
+		WallTimeLimit:            p.WallTimeLimit,
+		StackLimit:               p.StackLimit,
+		MaxProcessesAndOrThreads: p.MaxProcessesAndOrThreads,
+		ExpectedOutputFile:       p.ExpectedOutputFile,
+		TemplateCode:             p.TemplateCode,
+		WrapperCode:              p.WrapperCode,
+	}
+}
+
 func (p *Problem) ToDomain() *domain.Problem {
 	if p == nil {
 		return nil

@@ -13,6 +13,7 @@ import (
 	http_handler "github.com/NemCaBong/executify/internal/adapter/http/handler"
 	"github.com/NemCaBong/executify/internal/adapter/queue/redis"
 	"github.com/NemCaBong/executify/internal/adapter/repository"
+	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
 	"github.com/gin-gonic/gin"
@@ -38,8 +39,10 @@ func main() {
 			redisProducer := redis.NewRedisProducer(redisClient)
 
 			submissionUC := submission.NewUsecase(submissionRepo, problemRepo)
+			problemUC := problem.NewUsecase(problemRepo)
 			submissionHandler := http_handler.NewSubmissionHandler(&cfg, submissionUC, redisProducer)
-			app := api_http.NewApp(submissionHandler)
+			problemHandler := http_handler.NewProblemHandler(problemUC)
+			app := api_http.NewApp(submissionHandler, problemHandler)
 
 			r := setupRouter(app)
 
@@ -87,9 +90,13 @@ func setupRouter(app *api_http.App) *gin.Engine {
 	{
 		v1 := r.Group("/api/v1")
 		{
+			// Submissions
 			v1.POST("/submissions", app.SubmissionHandler.Submit)
 			v1.POST("/submissions/run", app.SubmissionHandler.Run)
 			v1.GET("/submissions/:id", app.SubmissionHandler.GetStatus)
+
+			// Problems
+			v1.PUT("/problems", app.ProblemHandler.Upsert)
 		}
 	}
 

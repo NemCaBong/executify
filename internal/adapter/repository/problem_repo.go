@@ -24,3 +24,11 @@ func (r *problemRepository) GetByID(ctx context.Context, id int) (*domain.Proble
 	}
 	return dbEntity.ToDomain(), nil
 }
+
+func (r *problemRepository) Upsert(ctx context.Context, problem *domain.Problem) (*domain.Problem, error) {
+	dbEntity := entity.ProblemFromDomain(problem)
+	if err := r.db.WithContext(ctx).Save(dbEntity).Error; err != nil {
+		return nil, err
+	}
+	return dbEntity.ToDomain(), nil
+}
