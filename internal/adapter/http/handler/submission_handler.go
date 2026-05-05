@@ -4,13 +4,14 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/NemCaBong/executify/internal/adapter/http/request"
 	"github.com/NemCaBong/executify/internal/adapter/http/response"
 	"github.com/NemCaBong/executify/internal/adapter/queue"
 	appqueue "github.com/NemCaBong/executify/internal/application/queue"
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
-	"github.com/gin-gonic/gin"
 )
 
 type SubmissionHandler struct {
@@ -89,11 +90,11 @@ func (h *SubmissionHandler) GetStatus(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	submission, err := h.submissionUC.GetByID(c.Request.Context(), id)
+	sub, err := h.submissionUC.GetByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, submission)
+	c.JSON(http.StatusOK, sub)
 }

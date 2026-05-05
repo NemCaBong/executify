@@ -15,8 +15,8 @@ type Problem struct {
 	SampleOutput             string    `gorm:"column:sample_output"`
 	TimeLimit                int       `gorm:"column:time_limit"`
 	MemoryLimit              int       `gorm:"column:memory_limit"`
-	CreatedAt                time.Time `gorm:"column:created_at;autoCreateTime"` // Tự động điền thời gian khi tạo mới
-	UpdatedAt                time.Time `gorm:"column:updated_at;autoUpdateTime"` // Tự động cập nhật khi có thay đổi
+	CreatedAt                time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt                time.Time `gorm:"column:updated_at;autoUpdateTime"`
 	InputFile                string    `gorm:"column:input_file"`
 	CPUTimeLimit             *float64  `gorm:"column:cpu_time_limit"`
 	CPUExtraTime             *float64  `gorm:"column:cpu_extra_time"`
@@ -26,6 +26,7 @@ type Problem struct {
 	ExpectedOutputFile       string    `gorm:"column:expected_output_file"`
 	TemplateCode             string    `gorm:"column:template_code"`
 	WrapperCode              string    `gorm:"column:wrapper_code"`
+	Tags                     []Tag     `gorm:"many2many:problem_tags;joinForeignKey:problem_id;joinReferences:tag_id"`
 }
 
 func (Problem) TableName() string {
@@ -58,6 +59,10 @@ func (p *Problem) ToDomain() *domain.Problem {
 	if p == nil {
 		return nil
 	}
+	tags := make([]domain.Tag, len(p.Tags))
+	for i, t := range p.Tags {
+		tags[i] = t.ToDomain()
+	}
 	return &domain.Problem{
 		ID:                       p.ID,
 		Name:                     p.Name,
@@ -78,5 +83,6 @@ func (p *Problem) ToDomain() *domain.Problem {
 		ExpectedOutputFile:       p.ExpectedOutputFile,
 		TemplateCode:             p.TemplateCode,
 		WrapperCode:              p.WrapperCode,
+		Tags:                     tags,
 	}
 }

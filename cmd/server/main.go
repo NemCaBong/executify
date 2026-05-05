@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/cobra"
+
 	api_http "github.com/NemCaBong/executify/internal/adapter/http"
 	http_handler "github.com/NemCaBong/executify/internal/adapter/http/handler"
 	"github.com/NemCaBong/executify/internal/adapter/queue/redis"
@@ -16,8 +19,6 @@ import (
 	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
-	"github.com/gin-gonic/gin"
-	"github.com/spf13/cobra"
 )
 
 func main() {

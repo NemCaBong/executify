@@ -22,4 +22,5 @@ type Problem struct {
 	ExpectedOutputFile       string    `json:"expected_output_file"`
 	TemplateCode             string    `json:"template_code"`
 	WrapperCode              string    `json:"wrapper_code"`
+	Tags                     []Tag     `json:"tags"`
 }

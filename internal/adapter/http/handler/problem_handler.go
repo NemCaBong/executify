@@ -3,10 +3,11 @@ package handler
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/NemCaBong/executify/internal/adapter/http/request"
 	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/domain"
-	"github.com/gin-gonic/gin"
 )
 
 type ProblemHandler struct {
