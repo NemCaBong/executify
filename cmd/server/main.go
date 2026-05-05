@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -56,7 +57,7 @@ func main() {
 			// it won't block the graceful shutdown handling below
 			go func() {
 				fmt.Printf("Server starting on %s\n", srv.Addr)
-				if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					fmt.Printf("listen: %v\n", err)
 				}
 			}()

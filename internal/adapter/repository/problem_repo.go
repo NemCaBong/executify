@@ -19,7 +19,7 @@ func NewProblemRepository(db *gorm.DB) problem.Repository {
 
 func (r *problemRepository) GetByID(ctx context.Context, id int) (*domain.Problem, error) {
 	var dbEntity entity.Problem
-	if err := r.db.WithContext(ctx).First(&dbEntity, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Tags").First(&dbEntity, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return dbEntity.ToDomain(), nil
@@ -27,7 +27,7 @@ func (r *problemRepository) GetByID(ctx context.Context, id int) (*domain.Proble
 
 func (r *problemRepository) Upsert(ctx context.Context, problem *domain.Problem) (*domain.Problem, error) {
 	dbEntity := entity.ProblemFromDomain(problem)
-	if err := r.db.WithContext(ctx).Save(dbEntity).Error; err != nil {
+	if err := r.db.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true}).Save(dbEntity).Error; err != nil {
 		return nil, err
 	}
 	return dbEntity.ToDomain(), nil

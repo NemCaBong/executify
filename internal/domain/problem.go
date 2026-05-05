@@ -23,4 +23,5 @@ type Problem struct {
 	TemplateCode             string    `json:"template_code"`
 	WrapperCode              string    `json:"wrapper_code"`
 	Tags                     []Tag     `json:"tags"`
+	Hints                    []string  `json:"hints"`
 }

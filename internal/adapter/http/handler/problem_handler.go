@@ -25,6 +25,11 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 		return
 	}
 
+	tags := make([]domain.Tag, len(req.Tags))
+	for i, t := range req.Tags {
+		tags[i] = domain.Tag{ID: t.ID, Name: t.Name, Slug: t.Slug}
+	}
+
 	prob := &domain.Problem{
 		ID:                       req.ID,
 		Name:                     req.Name,
@@ -43,6 +48,8 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 		MaxProcessesAndOrThreads: req.MaxProcessesAndOrThreads,
 		TemplateCode:             req.TemplateCode,
 		WrapperCode:              req.WrapperCode,
+		Hints:                    req.Hints,
+		Tags:                     tags,
 	}
 
 	result, err := h.problemUC.Upsert(c.Request.Context(), prob)
