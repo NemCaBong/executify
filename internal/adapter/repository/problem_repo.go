@@ -27,8 +27,16 @@ func (r *problemRepository) GetByID(ctx context.Context, id int) (*domain.Proble
 
 func (r *problemRepository) Upsert(ctx context.Context, problem *domain.Problem) (*domain.Problem, error) {
 	dbEntity := entity.ProblemFromDomain(problem)
-	if err := r.db.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true}).Save(dbEntity).Error; err != nil {
+
+	// Omit Tags from the main save so GORM doesn't try to upsert them as rows.
+	if err := r.db.WithContext(ctx).Omit("Tags.*").Save(dbEntity).Error; err != nil {
 		return nil, err
 	}
+
+	// Replace syncs the join-table rows; dbEntity.Tags is already correct in memory.
+	if err := r.db.WithContext(ctx).Model(dbEntity).Association("Tags").Replace(dbEntity.Tags); err != nil {
+		return nil, err
+	}
+
 	return dbEntity.ToDomain(), nil
 }
