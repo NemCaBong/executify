@@ -19,6 +19,9 @@ type Config struct {
 	RedisConfig       RedisConfig
 	RunQueueName      string
 	SubmitQueueName   string
+	JWTSecret         string
+	AccessTokenTTL    time.Duration
+	RefreshTokenTTL   time.Duration
 }
 
 func Load() Config {
@@ -45,6 +48,25 @@ func Load() Config {
 		submitQueueName = "submit_queue"
 	}
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "change-me-in-production"
+	}
+
+	accessTokenTTL := 15 * time.Minute
+	if v := os.Getenv("ACCESS_TOKEN_TTL_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			accessTokenTTL = time.Duration(n) * time.Second
+		}
+	}
+
+	refreshTokenTTL := 7 * 24 * time.Hour
+	if v := os.Getenv("REFRESH_TOKEN_TTL_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			refreshTokenTTL = time.Duration(n) * time.Second
+		}
+	}
+
 	mysqlConf := LoadMySQLConfig()
 	redisConf := LoadRedisConfig()
 
@@ -56,6 +78,9 @@ func Load() Config {
 		RedisConfig:       redisConf,
 		RunQueueName:      runQueueName,
 		SubmitQueueName:   submitQueueName,
+		JWTSecret:         jwtSecret,
+		AccessTokenTTL:    accessTokenTTL,
+		RefreshTokenTTL:   refreshTokenTTL,
 	}
 }
 

@@ -15,10 +15,12 @@ import (
 
 	api_http "github.com/NemCaBong/executify/internal/adapter/http"
 	http_handler "github.com/NemCaBong/executify/internal/adapter/http/handler"
+	"github.com/NemCaBong/executify/internal/adapter/http/middleware"
 	"github.com/NemCaBong/executify/internal/adapter/queue/redis"
 	"github.com/NemCaBong/executify/internal/adapter/repository"
 	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/application/submission"
+	"github.com/NemCaBong/executify/internal/application/user"
 	"github.com/NemCaBong/executify/internal/config"
 )
 
@@ -38,15 +40,25 @@ func main() {
 
 			submissionRepo := repository.NewSubmissionRepository(db)
 			problemRepo := repository.NewProblemRepository(db)
+			userRepo := repository.NewUserRepository(db)
+			refreshTokenRepo := repository.NewRefreshTokenRepository(db)
 			redisProducer := redis.NewRedisProducer(redisClient)
 
 			submissionUC := submission.NewUsecase(submissionRepo, problemRepo)
 			problemUC := problem.NewUsecase(problemRepo)
+			userUC := user.NewUsecase(
+				userRepo,
+				refreshTokenRepo,
+				[]byte(cfg.JWTSecret),
+				cfg.AccessTokenTTL,
+				cfg.RefreshTokenTTL,
+			)
 			submissionHandler := http_handler.NewSubmissionHandler(&cfg, submissionUC, redisProducer)
 			problemHandler := http_handler.NewProblemHandler(problemUC)
-			app := api_http.NewApp(submissionHandler, problemHandler)
+			authHandler := http_handler.NewAuthHandler(userUC)
+			app := api_http.NewApp(submissionHandler, problemHandler, authHandler)
 
-			r := setupRouter(app)
+			r := setupRouter(app, []byte(cfg.JWTSecret))
 
 			srv := &http.Server{
 				Addr:    fmt.Sprintf(":%s", cfg.ServerPort),
@@ -87,18 +99,28 @@ func main() {
 	}
 }
 
-func setupRouter(app *api_http.App) *gin.Engine {
+func setupRouter(app *api_http.App, jwtSecret []byte) *gin.Engine {
 	r := gin.Default()
 	{
 		v1 := r.Group("/api/v1")
 		{
-			// Submissions
-			v1.POST("/submissions", app.SubmissionHandler.Submit)
-			v1.POST("/submissions/run", app.SubmissionHandler.Run)
-			v1.GET("/submissions/:id", app.SubmissionHandler.GetStatus)
+			// Auth (public)
+			auth := v1.Group("/auth")
+			{
+				auth.POST("/register", app.AuthHandler.Register)
+				auth.POST("/login", app.AuthHandler.Login)
+				auth.POST("/refresh", app.AuthHandler.Refresh)
+				auth.POST("/logout", app.AuthHandler.Logout)
+			}
 
-			// Problems
-			v1.PUT("/problems", app.ProblemHandler.Upsert)
+			// Protected routes
+			protected := v1.Group("", middleware.Auth(jwtSecret))
+			{
+				protected.POST("/submissions", app.SubmissionHandler.Submit)
+				protected.POST("/submissions/run", app.SubmissionHandler.Run)
+				protected.GET("/submissions/:id", app.SubmissionHandler.GetStatus)
+				protected.PUT("/problems", app.ProblemHandler.Upsert)
+			}
 		}
 	}
 
