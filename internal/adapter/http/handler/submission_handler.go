@@ -46,7 +46,7 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.SubmitQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes())
+	err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.RedisConfig.SubmitQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -74,7 +74,7 @@ func (h *SubmissionHandler) Run(c *gin.Context) {
 		return
 	}
 
-	err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.RunQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes())
+	err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.RedisConfig.RunQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
