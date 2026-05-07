@@ -62,10 +62,11 @@ func (h *SubmissionHandler) Run(c *gin.Context) {
 	}
 
 	input := submission.CreateRunInput{
-		LanguageID: req.LanguageID,
-		ProblemID:  req.ProblemID,
-		SourceCode: req.SourceCode,
-		Stdin:      req.Stdin,
+		LanguageID:     req.LanguageID,
+		ProblemID:      req.ProblemID,
+		SourceCode:     req.SourceCode,
+		Input:          req.Input,
+		ExpectedOutput: req.ExpectedOutput,
 	}
 
 	id, err := h.submissionUC.Run(c.Request.Context(), &input)

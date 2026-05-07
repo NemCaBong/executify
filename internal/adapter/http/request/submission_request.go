@@ -7,8 +7,9 @@ type SubmitRequest struct {
 }
 
 type RunRequest struct {
-	LanguageID int    `json:"language_id" binding:"required"`
-	ProblemID  int    `json:"problem_id" binding:"required"`
-	SourceCode string `json:"source_code" binding:"required"`
-	Stdin      string `json:"stdin"`
+	LanguageID     int    `json:"language_id" binding:"required"`
+	ProblemID      int    `json:"problem_id" binding:"required"`
+	SourceCode     string `json:"source_code" binding:"required"`
+	Input          string `json:"input"`
+	ExpectedOutput string `json:"expected_output"`
 }

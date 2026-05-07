@@ -6,12 +6,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/NemCaBong/executify/internal/adapter/queue"
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/application/worker"
 	"github.com/NemCaBong/executify/internal/config"
 	"github.com/NemCaBong/executify/internal/domain"
-	"github.com/redis/go-redis/v9"
 )
 
 type runWorker struct {
@@ -82,11 +83,11 @@ func (w *runWorker) HandleRunSubmission(ctx context.Context, workerID int, jobDa
 		return
 	}
 
-	runner := domain.NewCodeRunner(submissionDetail, &submissionDetail.Stdin)
+	runner := domain.NewCodeRunner(submissionDetail, &submissionDetail.Input)
 	if err := runner.Execute(ctx); err != nil {
 		log.Printf("Worker %d: Execution error for submission %d: %v", workerID, msg.SubmissionID, err)
 		submissionDetail.Status = domain.StatusFailed
-		submissionDetail.Stderr = err.Error()
+		submissionDetail.Submission.Stderr = err.Error()
 	}
 
 	now := time.Now()

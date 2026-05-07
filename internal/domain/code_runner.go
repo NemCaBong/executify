@@ -5,44 +5,39 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
-	isolate "github.com/NemCaBong/go-isolate"
+	"github.com/NemCaBong/go-isolate"
 )
 
 const (
-	sandboxStdin  = "stdin.txt"
-	sandboxStdout = "stdout.txt"
-	sandboxStderr = "stderr.txt"
-
 	// BoxModulus is the Mersenne prime 2^31−1 used to map submission IDs to box IDs.
 	BoxModulus = 2147483647
 )
 
 type CodeRunner struct {
 	submission *SubmissionWithDetails
-	stdin      *string // non-nil = run mode (user-provided stdin); nil = submit mode (uses problem InputFile)
+	input      *string // non-nil = run mode (user-provided input lines); nil = submit mode (uses problem dir)
 	exec       *isolate.Executor
 }
 
-func NewCodeRunner(submission *SubmissionWithDetails, stdin *string) *CodeRunner {
+func NewCodeRunner(submission *SubmissionWithDetails, input *string) *CodeRunner {
 	return &CodeRunner{
 		submission: submission,
-		stdin:      stdin,
+		input:      input,
 	}
 }
 
-// init creates the sandbox, mounts system dirs, and configures meta-file output.
 func (r *CodeRunner) init(ctx context.Context) error {
 	boxId := r.submission.ID % BoxModulus
-	metaPath := fmt.Sprintf("/tmp/meta-%d.txt", boxId)
 	builder := isolate.New().
 		BoxID(boxId).
-		Meta(metaPath).
 		FullEnv().
 		DirSimple("/usr").
 		DirSimple("/etc").
 		DirSimple("/lib").
-		DirSimple("/var")
+		DirSimple("/var").
+		DirSimple("/tmp")
 	r.exec = builder.Exec()
 	if _, err := r.exec.Init(ctx); err != nil {
 		r.exec.Cleanup(ctx)
@@ -84,28 +79,9 @@ func (r *CodeRunner) compile(ctx context.Context) error {
 	return nil
 }
 
-// executeProgram runs the program with stdin/stdout redirected and applies problem limits.
-// Results are written back into the embedded Submission.
-func (r *CodeRunner) executeProgram(ctx context.Context) error {
+// applyExecOptions configures resource limits and I/O redirection for a single execution.
+func (r *CodeRunner) applyExecOptions() {
 	prob := &r.submission.Problem
-
-	var stdinContent []byte
-	if r.stdin != nil {
-		// run with stdin flow
-		stdinContent = []byte(*r.stdin)
-	} else {
-		// TODO: Maybe store input file in object storage rather in own computer
-		data, err := os.ReadFile(prob.InputFile)
-		if err != nil {
-			return fmt.Errorf("failed to read problem input file: %w", err)
-		}
-		stdinContent = data
-	}
-
-	if err := r.exec.WriteToSandbox(sandboxStdin, stdinContent, 0644); err != nil {
-		return fmt.Errorf("failed to write stdin to sandbox: %w", err)
-	}
-
 	memLimitKB := prob.MemoryLimit * 1024
 	cpuTime := float64(prob.TimeLimit)
 	wallTime := cpuTime * 2.0
@@ -126,9 +102,6 @@ func (r *CodeRunner) executeProgram(ctx context.Context) error {
 		isolate.WithTimeLimit(cpuTime),
 		isolate.WithWallTimeLimit(wallTime),
 		isolate.WithProcesses(processes),
-		isolate.WithStdin(r.submission.Problem.InputFile),
-		isolate.WithStdout(sandboxStdout),
-		isolate.WithStderr(sandboxStderr),
 	}
 	if prob.CPUExtraTime != nil {
 		opts = append(opts, isolate.WithExtraTime(*prob.CPUExtraTime))
@@ -137,21 +110,25 @@ func (r *CodeRunner) executeProgram(ctx context.Context) error {
 		opts = append(opts, isolate.WithStackLimit(*prob.StackLimit))
 	}
 	r.exec.ApplyOptions(opts...)
-
-	result, err := r.exec.Run(ctx, "/bin/sh", "-c", r.submission.Language.RunCmd)
-	if err != nil {
-		return fmt.Errorf("run command failed: %w", err)
-	}
-
-	r.applyResult(result)
-	return nil
 }
 
-func (r *CodeRunner) applyResult(result *isolate.Result) {
-	sub := &r.submission.Submission
-	sub.Stdout = result.Stdout
-	sub.Stderr = result.Stderr
+// runOnce writes stdinContent to the sandbox and executes the program once.
+func (r *CodeRunner) runOnce(ctx context.Context, stdinContent []byte) (*isolate.Result, error) {
+	if err := r.exec.WriteToSandbox(isolate.DefaultStdinFileName, stdinContent, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write stdin: %w", err)
+	}
+	r.applyExecOptions()
+	result, err := r.exec.Run(ctx, "/bin/sh", "-c", r.submission.Language.RunCmd)
+	if err != nil {
+		return nil, fmt.Errorf("run command failed: %w", err)
+	}
+	return result, nil
+}
 
+// applyMeta updates resource-usage metrics (time, memory, exit code) from the result.
+// Called after each runOnce; tracks the maximum time and memory seen across all runs.
+func (r *CodeRunner) applyMeta(result *isolate.Result) {
+	sub := &r.submission.Submission
 	if result.Meta != nil {
 		exitCode := result.Meta.ExitCode
 		sub.ExitCode = &exitCode
@@ -162,29 +139,116 @@ func (r *CodeRunner) applyResult(result *isolate.Result) {
 		}
 
 		timeMs := int(math.Round(result.Meta.Time * 1000))
-		sub.TimeUsed = &timeMs
+		if sub.TimeUsed == nil || timeMs > *sub.TimeUsed {
+			sub.TimeUsed = &timeMs
+		}
 
 		memKB := result.Meta.MaxRSS
-		sub.MemoryUsed = &memKB
-
-		if result.Meta.IsSuccess() {
-			sub.Status = StatusCompleted
-		} else {
-			sub.Status = StatusFailed
+		if sub.MemoryUsed == nil || memKB > *sub.MemoryUsed {
+			sub.MemoryUsed = &memKB
 		}
 	} else {
 		exitCode := result.ExitCode
 		sub.ExitCode = &exitCode
-		if result.ExitCode == 0 && result.Stderr == "" {
-			sub.Status = StatusCompleted
-		} else {
-			sub.Status = StatusFailed
-		}
 	}
 }
 
-// Execute runs the full lifecycle: init → compile (if needed) → execute → cleanup.
-// Results are written into the embedded Submission fields.
+func resultSucceeded(result *isolate.Result) bool {
+	if result.Meta != nil {
+		return result.Meta.IsSuccess()
+	}
+	return result.ExitCode == 0 && result.Stderr == ""
+}
+
+// executeRun runs every test case line from the user-provided input without early exit.
+// Each line of input is treated as one test case; outputs are stored newline-separated
+// in ActualOutput so the caller can see all results at once.
+func (r *CodeRunner) executeRun(ctx context.Context) error {
+	inputLines := splitLines(*r.input)
+	expectedLines := splitLines(r.submission.Submission.ExpectedOutput)
+
+	sub := &r.submission.Submission
+	actualOutputs := make([]string, 0, len(inputLines))
+	allPass := true
+
+	for i, line := range inputLines {
+		result, err := r.runOnce(ctx, []byte(line))
+		if err != nil {
+			return err
+		}
+		r.applyMeta(result)
+
+		actual := strings.TrimSpace(result.Stdout)
+		actualOutputs = append(actualOutputs, actual)
+
+		if !resultSucceeded(result) {
+			allPass = false
+		} else if i < len(expectedLines) && actual != strings.TrimSpace(expectedLines[i]) {
+			allPass = false
+		}
+	}
+
+	sub.ActualOutput = strings.Join(actualOutputs, "\n")
+	if allPass {
+		sub.Status = StatusCompleted
+	} else {
+		sub.Status = StatusFailed
+	}
+	return nil
+}
+
+// executeSubmit reads the problem's single input file and single expected-output file,
+// where each line is one test case. Compiles once, then runs each line sequentially.
+// Stops at the first failure and stores only that test case's input/actual/expected.
+func (r *CodeRunner) executeSubmit(ctx context.Context) error {
+	prob := &r.submission.Problem
+
+	inputData, err := os.ReadFile(prob.InputFile)
+	if err != nil {
+		return fmt.Errorf("failed to read input file %q: %w", prob.InputFile, err)
+	}
+	expectedData, err := os.ReadFile(prob.ExpectedOutputFile)
+	if err != nil {
+		return fmt.Errorf("failed to read expected output file %q: %w", prob.ExpectedOutputFile, err)
+	}
+
+	inputLines := splitLines(string(inputData))
+	expectedLines := splitLines(string(expectedData))
+
+	if len(inputLines) != len(expectedLines) {
+		return fmt.Errorf("line count mismatch: %d input lines vs %d expected output lines", len(inputLines), len(expectedLines))
+	}
+
+	sub := &r.submission.Submission
+	for i, inputLine := range inputLines {
+		result, err := r.runOnce(ctx, []byte(inputLine))
+		if err != nil {
+			return err
+		}
+		r.applyMeta(result)
+
+		actual := strings.TrimSpace(result.Stdout)
+		expected := strings.TrimSpace(expectedLines[i])
+
+		if !resultSucceeded(result) || actual != expected {
+			sub.Status = StatusFailed
+			sub.Input = inputLine
+			sub.ActualOutput = actual
+			sub.ExpectedOutput = expected
+			if !resultSucceeded(result) {
+				sub.Stderr = fmt.Sprintf("test case %d runtime error: %s", i+1, result.Stderr)
+			} else {
+				sub.Stderr = fmt.Sprintf("test case %d: wrong answer", i+1)
+			}
+			return nil
+		}
+	}
+
+	sub.Status = StatusCompleted
+	return nil
+}
+
+// Execute runs the full lifecycle: init → compile (once) → execute all test cases → cleanup.
 func (r *CodeRunner) Execute(ctx context.Context) error {
 	if err := r.init(ctx); err != nil {
 		return err
@@ -194,5 +258,18 @@ func (r *CodeRunner) Execute(ctx context.Context) error {
 	if err := r.compile(ctx); err != nil {
 		return err
 	}
-	return r.executeProgram(ctx)
+
+	if r.input != nil {
+		return r.executeRun(ctx)
+	}
+	return r.executeSubmit(ctx)
+}
+
+// splitLines splits s on newlines and drops trailing empty lines.
+func splitLines(s string) []string {
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
 }
