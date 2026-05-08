@@ -83,7 +83,14 @@ func (w *runWorker) HandleRunSubmission(ctx context.Context, workerID int, jobDa
 		return
 	}
 
-	runner := domain.NewCodeRunner(submissionDetail, &submissionDetail.Input)
+	submissionDetail.Submission.Status = domain.StatusProcessing
+	updateErr := w.submissionUC.Update(ctx, &submissionDetail.Submission)
+	if updateErr != nil {
+		log.Printf("Submit worker %d: Error update processing status: %v", workerID, updateErr)
+		return
+	}
+
+	runner := domain.NewCodeRunner(submissionDetail, &submissionDetail.Input, &submissionDetail.ExpectedOutput, w.cfg.CodeRunnerConfig)
 	if err := runner.Execute(ctx); err != nil {
 		log.Printf("Worker %d: Execution error for submission %d: %v", workerID, msg.SubmissionID, err)
 		submissionDetail.Status = domain.StatusFailed

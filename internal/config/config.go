@@ -20,6 +20,7 @@ type Config struct {
 	JWTSecret         string
 	AccessTokenTTL    time.Duration
 	RefreshTokenTTL   time.Duration
+	CodeRunnerConfig  CodeRunnerConfig
 }
 
 func Load() Config {
@@ -56,18 +57,16 @@ func Load() Config {
 		}
 	}
 
-	mysqlConf := LoadMySQLConfig()
-	redisConf := LoadRedisConfig()
-
 	return Config{
 		ServerPort:        port,
 		RunWorkerCount:    runWorkerCountInt,
 		SubmitWorkerCount: submitWorkerCountInt,
-		MySQLConfig:       mysqlConf,
-		RedisConfig:       redisConf,
+		MySQLConfig:       LoadMySQLConfig(),
+		RedisConfig:       LoadRedisConfig(),
 		JWTSecret:         jwtSecret,
 		AccessTokenTTL:    accessTokenTTL,
 		RefreshTokenTTL:   refreshTokenTTL,
+		CodeRunnerConfig:  LoadCodeRunnerConfig(),
 	}
 }
 

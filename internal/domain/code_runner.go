@@ -8,45 +8,88 @@ import (
 	"strings"
 
 	"github.com/NemCaBong/go-isolate"
-)
 
-const (
-	// BoxModulus is the Mersenne prime 2^31−1 used to map submission IDs to box IDs.
-	BoxModulus = 2147483647
+	"github.com/NemCaBong/executify/internal/config"
 )
 
 type CodeRunner struct {
-	submission *SubmissionWithDetails
-	input      *string // non-nil = run mode (user-provided input lines); nil = submit mode (uses problem dir)
-	exec       *isolate.Executor
+	submission           *SubmissionWithDetails
+	userInput            *string // non-nil = run mode (user-provided input lines); nil = submit mode (uses problem dir)
+	userExpectedOutput   *string
+	exec                 *isolate.Executor
+	codeRunnerCfg        config.CodeRunnerConfig
+	stdoutFileName       string
+	stderrFileName       string
+	actualOutputFileName string
+	metaFileName         string
 }
 
-func NewCodeRunner(submission *SubmissionWithDetails, input *string) *CodeRunner {
+func NewCodeRunner(
+	submission *SubmissionWithDetails,
+	userInput *string,
+	userExpectedOutput *string,
+	codeRunnerCfg config.CodeRunnerConfig,
+) *CodeRunner {
+	hash := hashFileName(submission.ID, codeRunnerCfg.FileSecret)
 	return &CodeRunner{
-		submission: submission,
-		input:      input,
+		submission:           submission,
+		userInput:            userInput,
+		userExpectedOutput:   userExpectedOutput,
+		codeRunnerCfg:        codeRunnerCfg,
+		stdoutFileName:       hash + StdoutFileName,
+		stderrFileName:       hash + StderrFileName,
+		actualOutputFileName: hash + ActualOutputFileName,
+		metaFileName:         hash + MetaFileName,
 	}
 }
 
 func (r *CodeRunner) init(ctx context.Context) error {
-	boxId := r.submission.ID % BoxModulus
-	builder := isolate.New().
+	boxId := r.submission.ID % r.codeRunnerCfg.BoxModulus
+	r.exec = isolate.New().
 		BoxID(boxId).
 		FullEnv().
 		DirSimple("/usr").
 		DirSimple("/etc").
 		DirSimple("/lib").
 		DirSimple("/var").
-		DirSimple("/tmp")
-	r.exec = builder.Exec()
+		DirSimple("/tmp").
+		Meta(r.metaFileName).
+		Stdout(r.stdoutFileName).
+		Stderr(r.stderrFileName).
+		InheritFDs(). // to route user res to another fd
+		Exec()
 	if _, err := r.exec.Init(ctx); err != nil {
 		r.exec.Cleanup(ctx)
 		return err
 	}
+
+	// create sandbox files
+	for _, name := range []string{
+		r.stdoutFileName,
+		r.stderrFileName,
+		r.actualOutputFileName,
+		r.metaFileName,
+	} {
+		err := r.exec.WriteToSandbox(name, []byte(""), 0644)
+		if err != nil {
+			r.exec.Cleanup(ctx)
+			return err
+		}
+	}
+
+	if err := r.exec.WriteToSandbox(
+		r.submission.Language.SourceFile,
+		[]byte(r.submission.SourceCode),
+		0644,
+	); err != nil {
+		r.exec.Cleanup(ctx)
+		return fmt.Errorf("failed to write source code: %w", err)
+	}
+
 	return nil
 }
 
-// compile writes the source code and runs the compiler inside the sandbox.
+// compile runs the compiler inside the sandbox.
 // It is a no-op for interpreted languages.
 func (r *CodeRunner) compile(ctx context.Context) error {
 	if r.submission.Language.CompileCmd == nil {
@@ -60,15 +103,7 @@ func (r *CodeRunner) compile(ctx context.Context) error {
 		isolate.WithProcesses(10),
 	)
 
-	if err := r.exec.WriteToSandbox(
-		r.submission.Language.SourceFile,
-		[]byte(r.submission.SourceCode),
-		0644,
-	); err != nil {
-		return fmt.Errorf("failed to write source code: %w", err)
-	}
-
-	result, err := r.exec.Run(ctx, "/bin/sh", "-c", *r.submission.Language.CompileCmd)
+	result, err := r.exec.Run(ctx, "/bin/bash", "-c", *r.submission.Language.CompileCmd)
 	if err != nil {
 		return fmt.Errorf("compile command failed: %w", err)
 	}
@@ -85,7 +120,7 @@ func (r *CodeRunner) applyExecOptions() {
 	memLimitKB := prob.MemoryLimit * 1024
 	cpuTime := float64(prob.TimeLimit)
 	wallTime := cpuTime * 2.0
-	processes := 1
+	processes := 10
 
 	if prob.CPUTimeLimit != nil {
 		cpuTime = *prob.CPUTimeLimit
@@ -112,13 +147,11 @@ func (r *CodeRunner) applyExecOptions() {
 	r.exec.ApplyOptions(opts...)
 }
 
-// runOnce writes stdinContent to the sandbox and executes the program once.
-func (r *CodeRunner) runOnce(ctx context.Context, stdinContent []byte) (*isolate.Result, error) {
-	if err := r.exec.WriteToSandbox(isolate.DefaultStdinFileName, stdinContent, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write stdin: %w", err)
-	}
+// runOnce feeds stdinContent to the program and captures fd3 as the actual output.
+func (r *CodeRunner) runOnce(ctx context.Context, stdinContent string) (*isolate.Result, error) {
 	r.applyExecOptions()
-	result, err := r.exec.Run(ctx, "/bin/sh", "-c", r.submission.Language.RunCmd)
+	cmd := fmt.Sprintf("%s <<< %q 3>%q", r.submission.Language.RunCmd, stdinContent, r.actualOutputFileName)
+	result, err := r.exec.Run(ctx, "/bin/bash", "-c", cmd)
 	if err != nil {
 		return nil, fmt.Errorf("run command failed: %w", err)
 	}
@@ -164,21 +197,30 @@ func resultSucceeded(result *isolate.Result) bool {
 // Each line of input is treated as one test case; outputs are stored newline-separated
 // in ActualOutput so the caller can see all results at once.
 func (r *CodeRunner) executeRun(ctx context.Context) error {
-	inputLines := splitLines(*r.input)
-	expectedLines := splitLines(r.submission.Submission.ExpectedOutput)
+	inputLines := splitLines(*r.userInput)
+	expectedLines := splitLines(*r.userExpectedOutput)
+	if len(inputLines) != len(expectedLines) {
+		return fmt.Errorf("expected %d lines of input, got %d", len(expectedLines), len(inputLines))
+	}
 
 	sub := &r.submission.Submission
 	actualOutputs := make([]string, 0, len(inputLines))
+	userOutputs := make([]string, 0, len(inputLines))
 	allPass := true
 
 	for i, line := range inputLines {
-		result, err := r.runOnce(ctx, []byte(line))
+		result, err := r.runOnce(ctx, line)
 		if err != nil {
 			return err
 		}
 		r.applyMeta(result)
 
-		actual := strings.TrimSpace(result.Stdout)
+		userOutput := strings.TrimSpace(result.Stdout)
+		userOutputs = append(userOutputs, userOutput)
+		actual, err := r.getActualOutput()
+		if err != nil {
+			return err
+		}
 		actualOutputs = append(actualOutputs, actual)
 
 		if !resultSucceeded(result) {
@@ -221,20 +263,24 @@ func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 
 	sub := &r.submission.Submission
 	for i, inputLine := range inputLines {
-		result, err := r.runOnce(ctx, []byte(inputLine))
-		if err != nil {
-			return err
+		result, runErr := r.runOnce(ctx, inputLine)
+		if runErr != nil {
+			return runErr
 		}
 		r.applyMeta(result)
 
-		actual := strings.TrimSpace(result.Stdout)
+		actual, err := r.getActualOutput()
+		if err != nil {
+			return err
+		}
+		actual = strings.TrimSpace(actual)
 		expected := strings.TrimSpace(expectedLines[i])
 
 		if !resultSucceeded(result) || actual != expected {
 			sub.Status = StatusFailed
-			sub.Input = inputLine
+			sub.ErrTestCaseInput = inputLine
+			sub.ErrTestCaseOutput = expected
 			sub.ActualOutput = actual
-			sub.ExpectedOutput = expected
 			if !resultSucceeded(result) {
 				sub.Stderr = fmt.Sprintf("test case %d runtime error: %s", i+1, result.Stderr)
 			} else {
@@ -259,7 +305,7 @@ func (r *CodeRunner) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if r.input != nil {
+	if r.userInput != nil {
 		return r.executeRun(ctx)
 	}
 	return r.executeSubmit(ctx)
@@ -272,4 +318,12 @@ func splitLines(s string) []string {
 		lines = lines[:len(lines)-1]
 	}
 	return lines
+}
+
+func (r *CodeRunner) getActualOutput() (string, error) {
+	output, err := os.ReadFile(r.exec.GetSandboxDir() + "/" + r.actualOutputFileName)
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
 }

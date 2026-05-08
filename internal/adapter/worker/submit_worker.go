@@ -6,12 +6,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/NemCaBong/executify/internal/adapter/queue"
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/application/worker"
 	"github.com/NemCaBong/executify/internal/config"
 	"github.com/NemCaBong/executify/internal/domain"
-	"github.com/redis/go-redis/v9"
 )
 
 type submitWorker struct {
@@ -81,8 +82,15 @@ func (w *submitWorker) HandleSubmitSubmission(ctx context.Context, workerID int,
 		return
 	}
 
+	submissionDetail.Submission.Status = domain.StatusProcessing
+	updateErr := w.submissionUC.Update(ctx, &submissionDetail.Submission)
+	if updateErr != nil {
+		log.Printf("Submit worker %d: Error update processing status: %v", workerID, updateErr)
+		return
+	}
+
 	// submit mode: nil stdin causes CodeRunner to use the problem's InputFile
-	runner := domain.NewCodeRunner(submissionDetail, nil)
+	runner := domain.NewCodeRunner(submissionDetail, nil, nil, w.cfg.CodeRunnerConfig)
 	if err := runner.Execute(ctx); err != nil {
 		log.Printf("Submit worker %d: Execution error for submission %d: %v", workerID, msg.SubmissionID, err)
 		submissionDetail.Status = domain.StatusFailed

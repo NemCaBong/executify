@@ -8,6 +8,8 @@ github.com/NemCaBong/go-isolate v0.0.0-20260507034746-d27b93be0d1c h1:bCeQphbxID
 github.com/NemCaBong/go-isolate v0.0.0-20260507034746-d27b93be0d1c/go.mod h1:7gQlbQHId/nXj7vjBcphDpAbfBWXPR+21L/3RftICk8=
 github.com/NemCaBong/go-isolate v0.0.0-20260507035721-5a012af22436 h1:iJIyoV4RGkzF8qw5lIKBPgCluZZ9ilcQ3dHEbDipXfw=
 github.com/NemCaBong/go-isolate v0.0.0-20260507035721-5a012af22436/go.mod h1:7gQlbQHId/nXj7vjBcphDpAbfBWXPR+21L/3RftICk8=
+github.com/NemCaBong/go-isolate v0.0.0-20260508035250-f85a746b535e h1:Q5Y3hEXIg4UodT+9Wm/eb5JDsfo0175ozG6+4mS07Iw=
+github.com/NemCaBong/go-isolate v0.0.0-20260508035250-f85a746b535e/go.mod h1:7gQlbQHId/nXj7vjBcphDpAbfBWXPR+21L/3RftICk8=
 github.com/bsm/ginkgo/v2 v2.12.0 h1:Ny8MWAHyOepLGlLKYmXG4IEkioBysk6GpaRTLC8zwWs=
 github.com/bsm/ginkgo/v2 v2.12.0/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
 github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=
