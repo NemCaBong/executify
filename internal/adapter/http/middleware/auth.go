@@ -4,9 +4,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/NemCaBong/executify/internal/application/user"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
+
+	"github.com/NemCaBong/executify/internal/application/user"
+	"github.com/NemCaBong/executify/internal/logger"
 )
 
 const ContextKeyUserClaims = "user_claims"
@@ -35,6 +38,11 @@ func Auth(jwtSecret []byte) gin.HandlerFunc {
 		}
 
 		c.Set(ContextKeyUserClaims, claims)
+
+		l := logger.FromContext(c.Request.Context()).With(zap.Int("user_id", claims.UserID))
+		ctx := logger.WithContext(c.Request.Context(), l)
+		c.Request = c.Request.WithContext(ctx)
+
 		c.Next()
 	}
 }

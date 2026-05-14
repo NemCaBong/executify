@@ -2,18 +2,19 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 
 	"github.com/NemCaBong/executify/internal/adapter/repository"
 	"github.com/NemCaBong/executify/internal/adapter/worker"
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
+	"github.com/NemCaBong/executify/internal/logger"
 )
 
 func init() {
@@ -38,12 +39,14 @@ func main() {
 	})
 
 	if err := cmd.Execute(); err != nil {
-		log.Fatal(err)
 		os.Exit(1)
 	}
 }
 
 func HandleRunSubmissions(_ *cobra.Command, _ []string) {
+	log := logger.Init()
+	defer log.Sync() //nolint:errcheck
+
 	cfg := config.Load()
 	db := config.NewMySQLConnection(cfg)
 	cache := config.NewRedisClient(cfg)
@@ -55,11 +58,14 @@ func HandleRunSubmissions(_ *cobra.Command, _ []string) {
 	defer stop()
 
 	if err := runWorker.Execute(ctx); err != nil {
-		log.Fatal(err)
+		log.Fatal("run worker exited with error", zap.Error(err))
 	}
 }
 
 func HandleSubmitSubmissions(_ *cobra.Command, _ []string) {
+	log := logger.Init()
+	defer log.Sync() //nolint:errcheck
+
 	cfg := config.Load()
 	db := config.NewMySQLConnection(cfg)
 	cache := config.NewRedisClient(cfg)
@@ -71,6 +77,6 @@ func HandleSubmitSubmissions(_ *cobra.Command, _ []string) {
 	defer stop()
 
 	if err := submitWorker.Execute(ctx); err != nil {
-		log.Fatal(err)
+		log.Fatal("submit worker exited with error", zap.Error(err))
 	}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	api_http "github.com/NemCaBong/executify/internal/adapter/http"
 	http_handler "github.com/NemCaBong/executify/internal/adapter/http/handler"
@@ -22,6 +22,7 @@ import (
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/application/user"
 	"github.com/NemCaBong/executify/internal/config"
+	"github.com/NemCaBong/executify/internal/logger"
 )
 
 func main() {
@@ -30,6 +31,9 @@ func main() {
 		Short: "Executify is a powerful backend app for online judge system",
 		Long:  `A robust Go service to serve API requests for a scalable online judge system.`,
 		Run: func(cmd *cobra.Command, args []string) {
+			log := logger.Init()
+			defer log.Sync() //nolint:errcheck
+
 			// Create context that listens for the interrupt signal from the OS.
 			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
@@ -61,66 +65,57 @@ func main() {
 			r := setupRouter(app, []byte(cfg.JWTSecret))
 
 			srv := &http.Server{
-				Addr:    fmt.Sprintf(":%s", cfg.ServerPort),
+				Addr:    ":" + cfg.ServerPort,
 				Handler: r,
 			}
 
-			// Initializing the server in a goroutine so that
-			// it won't block the graceful shutdown handling below
 			go func() {
-				fmt.Printf("Server starting on %s\n", srv.Addr)
+				log.Info("server starting", zap.String("addr", srv.Addr))
 				if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					fmt.Printf("listen: %v\n", err)
+					log.Error("server listen error", zap.Error(err))
 				}
 			}()
 
-			// Listen for the interrupt signal.
 			<-ctx.Done()
 
-			// Restore default behavior on the interrupt signal and notify user of shutdown.
 			stop()
-			fmt.Println("shutting down gracefully, press Ctrl+C again to force")
+			log.Info("shutting down gracefully")
 
-			// The context is used to inform the server it has 30 seconds to finish
-			// the request it is currently handling
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			if err := srv.Shutdown(ctx); err != nil {
-				fmt.Printf("Server forced to shutdown: %v\n", err)
+			if err := srv.Shutdown(shutdownCtx); err != nil {
+				log.Error("server forced to shutdown", zap.Error(err))
 			}
 
-			fmt.Println("Server exiting")
+			log.Info("server exited")
 		},
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
 func setupRouter(app *api_http.App, jwtSecret []byte) *gin.Engine {
-	r := gin.Default()
-	{
-		v1 := r.Group("/api/v1")
-		{
-			// Auth (public)
-			auth := v1.Group("/auth")
-			{
-				auth.POST("/register", app.AuthHandler.Register)
-				auth.POST("/login", app.AuthHandler.Login)
-				auth.POST("/refresh", app.AuthHandler.Refresh)
-				auth.POST("/logout", app.AuthHandler.Logout)
-			}
+	r := gin.New()
+	r.Use(gin.Recovery(), middleware.RequestLogger())
 
-			// Protected routes
-			protected := v1.Group("", middleware.Auth(jwtSecret))
-			{
-				protected.POST("/submissions", app.SubmissionHandler.Submit)
-				protected.POST("/submissions/run", app.SubmissionHandler.Run)
-				protected.GET("/submissions/:id", app.SubmissionHandler.GetStatus)
-				protected.PUT("/problems", app.ProblemHandler.Upsert)
-			}
+	v1 := r.Group("/api/v1")
+	{
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/register", app.AuthHandler.Register)
+			auth.POST("/login", app.AuthHandler.Login)
+			auth.POST("/refresh", app.AuthHandler.Refresh)
+			auth.POST("/logout", app.AuthHandler.Logout)
+		}
+
+		protected := v1.Group("", middleware.Auth(jwtSecret))
+		{
+			protected.POST("/submissions", app.SubmissionHandler.Submit)
+			protected.POST("/submissions/run", app.SubmissionHandler.Run)
+			protected.GET("/submissions/:id", app.SubmissionHandler.GetStatus)
+			protected.PUT("/problems", app.ProblemHandler.Upsert)
 		}
 	}
 
