@@ -13,7 +13,7 @@ func (i CreateSubmissionInput) ToDomain() *domain.Submission {
 		LanguageID: i.LanguageID,
 		ProblemID:  i.ProblemID,
 		SourceCode: i.SourceCode,
-		Status:     domain.StatusSubmitted,
+		Status:     domain.StatusQueued,
 	}
 }
 
@@ -32,6 +32,6 @@ func (i CreateRunInput) ToDomain() *domain.Submission {
 		SourceCode:     i.SourceCode,
 		Input:          i.Input,
 		ExpectedOutput: i.ExpectedOutput,
-		Status:         domain.StatusSubmitted,
+		Status:         domain.StatusQueued,
 	}
 }

@@ -139,10 +139,14 @@ func (w *runWorker) handleJob(ctx context.Context, workerID int, jobData string)
 
 	l.Info("executing run submission")
 
-	runner := domain.NewCodeRunner(submissionDetail, &submissionDetail.Input, &submissionDetail.ExpectedOutput, w.cfg.CodeRunnerConfig)
+	runner := domain.NewCodeRunner(submissionDetail, &submissionDetail.Input, &submissionDetail.ExpectedOutput, w.cfg.CodeRunnerConfig).
+		WithStatusNotifier(func(notifyCtx context.Context, status domain.SubmissionStatus) error {
+			submissionDetail.Submission.Status = status
+			return w.submissionUC.Update(notifyCtx, &submissionDetail.Submission)
+		})
 	if err = runner.Execute(ctx); err != nil {
 		l.Error("execution failed", zap.Error(err))
-		submissionDetail.Status = domain.StatusFailed
+		submissionDetail.Status = domain.StatusInternalError
 		submissionDetail.Submission.Stderr = err.Error()
 	}
 

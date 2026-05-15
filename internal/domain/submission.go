@@ -1,16 +1,70 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+
+	"github.com/NemCaBong/go-isolate"
+)
 
 type SubmissionStatus string
 
-// status flow: SUBMITTED -> PROCESSING (in queue) -> COMPLETED | FAILED
+// Lifecycle: QUEUED -> PROCESSING (picked up by worker) ->
+// COMPILING (only if the language has a compile step) -> RUNNING ->
+// one of the terminal verdicts below. Terminal verdicts are final.
 const (
-	StatusCompleted  SubmissionStatus = "COMPLETED"
-	StatusFailed     SubmissionStatus = "FAILED"
+	StatusQueued     SubmissionStatus = "QUEUED"
 	StatusProcessing SubmissionStatus = "PROCESSING"
-	StatusSubmitted  SubmissionStatus = "SUBMITTED"
+	StatusCompiling  SubmissionStatus = "COMPILING"
+	StatusRunning    SubmissionStatus = "RUNNING"
+
+	StatusAccepted            SubmissionStatus = "ACCEPTED"
+	StatusWrongAnswer         SubmissionStatus = "WRONG_ANSWER"
+	StatusTimeLimitExceeded   SubmissionStatus = "TIME_LIMIT_EXCEEDED"
+	StatusMemoryLimitExceeded SubmissionStatus = "MEMORY_LIMIT_EXCEEDED"
+	StatusRuntimeError        SubmissionStatus = "RUNTIME_ERROR"
+	StatusCompilationError    SubmissionStatus = "COMPILATION_ERROR"
+	StatusInternalError       SubmissionStatus = "INTERNAL_ERROR"
 )
+
+// StatusNotifier is invoked by CodeRunner at phase transitions so the worker
+// can persist intermediate states (COMPILING, RUNNING) without coupling the
+// domain layer to a repository. Returning a non-nil error is logged but does
+// not abort execution — the final terminal verdict is what actually matters.
+type StatusNotifier func(ctx context.Context, status SubmissionStatus) error
+
+// ClassifyFromMeta maps an isolate meta-file result to a sandbox-level verdict.
+// It only reflects what the sandbox observed: WRONG_ANSWER must be decided by
+// the caller after comparing program output against expected output.
+//
+// A nil meta means isolate produced no metadata (the run itself was broken),
+// which is treated as INTERNAL_ERROR rather than a program-level failure.
+//
+// MLE detection: isolate reports OOM kills as Status="SG" with CGOOMKilled set,
+// so the CGOOMKilled check must come before the generic signal branch.
+func ClassifyFromMeta(meta *isolate.Meta) SubmissionStatus {
+	if meta == nil {
+		return StatusInternalError
+	}
+	if meta.CGOOMKilled {
+		return StatusMemoryLimitExceeded
+	}
+	switch meta.Status {
+	case isolate.StatusOK:
+		if meta.ExitCode == 0 && !meta.Killed {
+			return StatusAccepted
+		}
+		return StatusRuntimeError
+	case isolate.StatusTimeout:
+		return StatusTimeLimitExceeded
+	case isolate.StatusSignal, isolate.StatusRuntimeError:
+		return StatusRuntimeError
+	case isolate.StatusInternalError:
+		return StatusInternalError
+	default:
+		return StatusInternalError
+	}
+}
 
 type Submission struct {
 	ID                int              `json:"id"`
