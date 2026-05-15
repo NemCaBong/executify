@@ -14,6 +14,7 @@ type Submission struct {
 	Input             string     `gorm:"column:input"`
 	ExpectedOutput    string     `gorm:"column:expected_output"`
 	ActualOutput      string     `gorm:"column:actual_output"`
+	UserOutput        string     `gorm:"column:user_output"`
 	Stderr            string     `gorm:"column:stderr"`
 	Status            string     `gorm:"column:status"`
 	CreatedAt         time.Time  `gorm:"column:created_at;autoCreateTime"`
@@ -46,6 +47,7 @@ func (m *Submission) ToDomain() *domain.Submission {
 		Input:             m.Input,
 		ExpectedOutput:    m.ExpectedOutput,
 		ActualOutput:      m.ActualOutput,
+		UserOutput:        m.UserOutput,
 		Stderr:            m.Stderr,
 		Status:            domain.SubmissionStatus(m.Status),
 		CreatedAt:         m.CreatedAt,
@@ -71,6 +73,7 @@ func FromDomain(d *domain.Submission) *Submission {
 		Input:             d.Input,
 		ExpectedOutput:    d.ExpectedOutput,
 		ActualOutput:      d.ActualOutput,
+		UserOutput:        d.UserOutput,
 		Stderr:            d.Stderr,
 		Status:            string(d.Status),
 		CreatedAt:         d.CreatedAt,

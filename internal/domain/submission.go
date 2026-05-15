@@ -74,6 +74,7 @@ type Submission struct {
 	Input             string           `json:"input"`
 	ExpectedOutput    string           `json:"expected_output"`
 	ActualOutput      string           `json:"actual_output"`
+	UserOutput        string           `json:"user_output"`
 	Stderr            string           `json:"stderr"`
 	Status            SubmissionStatus `json:"status"`
 	CreatedAt         time.Time        `json:"created_at"`

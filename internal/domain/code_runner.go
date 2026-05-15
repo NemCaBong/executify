@@ -255,7 +255,7 @@ func (r *CodeRunner) executeRun(ctx context.Context) error {
 		}
 	}
 
-	sub.ExpectedOutput = strings.Join(actualOutputs, "\n")
+	sub.UserOutput = strings.Join(userOutputs, "\n")
 	sub.ActualOutput = strings.Join(actualOutputs, "\n")
 	sub.Status = verdict
 	return nil
@@ -297,12 +297,14 @@ func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 		}
 		actual = strings.TrimSpace(actual)
 		expected := strings.TrimSpace(expectedLines[i])
+		userOutput := strings.TrimSpace(result.Stdout)
 
 		if !resultSucceeded(result) {
 			sub.Status = ClassifyFromMeta(result.Meta)
 			sub.ErrTestCaseInput = inputLine
 			sub.ErrTestCaseOutput = expected
 			sub.ActualOutput = actual
+			sub.UserOutput = userOutput
 			sub.Stderr = fmt.Sprintf("test case %d: %s", i+1, result.Stderr)
 			return nil
 		}
@@ -311,6 +313,7 @@ func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 			sub.ErrTestCaseInput = inputLine
 			sub.ErrTestCaseOutput = expected
 			sub.ActualOutput = actual
+			sub.UserOutput = userOutput
 			sub.Stderr = fmt.Sprintf("test case %d: wrong answer", i+1)
 			return nil
 		}
