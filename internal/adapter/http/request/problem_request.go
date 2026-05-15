@@ -9,6 +9,9 @@ type TagInput struct {
 type UpsertProblemRequest struct {
 	ID                       int        `json:"id"`
 	Name                     string     `json:"name" binding:"required"`
+	Slug                     *string    `json:"slug"`
+	Difficulty               *string    `json:"difficulty" binding:"omitempty,oneof=easy medium hard"`
+	IsPublic                 *bool      `json:"is_public"`
 	Description              string     `json:"description" binding:"required"`
 	OutputFormat             string     `json:"output_format"`
 	SampleInput              string     `json:"sample_input"`

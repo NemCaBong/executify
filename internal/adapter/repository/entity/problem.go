@@ -11,6 +11,11 @@ import (
 type Problem struct {
 	ID                       int                         `gorm:"column:id;primaryKey"`
 	Name                     string                      `gorm:"column:name"`
+	Slug                     *string                     `gorm:"column:slug"`
+	Difficulty               *string                     `gorm:"column:difficulty"`
+	IsPublic                 bool                        `gorm:"column:is_public;default:true"`
+	AcceptedCount            int                         `gorm:"column:accepted_count;default:0"`
+	SubmissionCount          int                         `gorm:"column:submission_count;default:0"`
 	Description              string                      `gorm:"column:description"`
 	OutputFormat             string                      `gorm:"column:output_format"`
 	SampleInput              string                      `gorm:"column:sample_input"`
@@ -41,9 +46,19 @@ func ProblemFromDomain(p *domain.Problem) *Problem {
 	for i, t := range p.Tags {
 		tags[i] = Tag{ID: t.ID, Name: t.Name, Slug: t.Slug}
 	}
+	var difficulty *string
+	if p.Difficulty != nil {
+		s := string(*p.Difficulty)
+		difficulty = &s
+	}
 	return &Problem{
 		ID:                       p.ID,
 		Name:                     p.Name,
+		Slug:                     p.Slug,
+		Difficulty:               difficulty,
+		IsPublic:                 p.IsPublic,
+		AcceptedCount:            p.AcceptedCount,
+		SubmissionCount:          p.SubmissionCount,
 		Description:              p.Description,
 		OutputFormat:             p.OutputFormat,
 		SampleInput:              p.SampleInput,
@@ -72,9 +87,19 @@ func (p *Problem) ToDomain() *domain.Problem {
 	for i, t := range p.Tags {
 		tags[i] = t.ToDomain()
 	}
+	var difficulty *domain.Difficulty
+	if p.Difficulty != nil {
+		d := domain.Difficulty(*p.Difficulty)
+		difficulty = &d
+	}
 	return &domain.Problem{
 		ID:                       p.ID,
 		Name:                     p.Name,
+		Slug:                     p.Slug,
+		Difficulty:               difficulty,
+		IsPublic:                 p.IsPublic,
+		AcceptedCount:            p.AcceptedCount,
+		SubmissionCount:          p.SubmissionCount,
 		Description:              p.Description,
 		OutputFormat:             p.OutputFormat,
 		SampleInput:              p.SampleInput,

@@ -30,9 +30,22 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 		tags[i] = domain.Tag{ID: t.ID, Name: t.Name, Slug: t.Slug}
 	}
 
+	var difficulty *domain.Difficulty
+	if req.Difficulty != nil {
+		d := domain.Difficulty(*req.Difficulty)
+		difficulty = &d
+	}
+	isPublic := true
+	if req.IsPublic != nil {
+		isPublic = *req.IsPublic
+	}
+
 	prob := &domain.Problem{
 		ID:                       req.ID,
 		Name:                     req.Name,
+		Slug:                     req.Slug,
+		Difficulty:               difficulty,
+		IsPublic:                 isPublic,
 		Description:              req.Description,
 		OutputFormat:             req.OutputFormat,
 		SampleInput:              req.SampleInput,
