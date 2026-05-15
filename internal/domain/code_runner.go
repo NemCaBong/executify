@@ -255,6 +255,7 @@ func (r *CodeRunner) executeRun(ctx context.Context) error {
 		}
 	}
 
+	sub.ExpectedOutput = strings.Join(actualOutputs, "\n")
 	sub.ActualOutput = strings.Join(actualOutputs, "\n")
 	sub.Status = verdict
 	return nil
