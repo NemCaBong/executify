@@ -14,6 +14,7 @@ import (
 	"github.com/NemCaBong/executify/internal/application/submission"
 	"github.com/NemCaBong/executify/internal/config"
 	"github.com/NemCaBong/executify/internal/logger"
+	"github.com/NemCaBong/executify/pkg/httperr"
 )
 
 type SubmissionHandler struct {
@@ -36,7 +37,7 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 	var req request.SubmitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		l.Warn("invalid submit request", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.BadRequest(c, err.Error())
 		return
 	}
 
@@ -49,7 +50,7 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 	id, err := h.submissionUC.Submit(c.Request.Context(), &input)
 	if err != nil {
 		l.Error("failed to create submission", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httperr.Internal(c)
 		return
 	}
 
@@ -57,7 +58,7 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 
 	if err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.RedisConfig.SubmitQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes()); err != nil {
 		l.Error("failed to enqueue submission", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httperr.Internal(c)
 		return
 	}
 
@@ -71,7 +72,7 @@ func (h *SubmissionHandler) Run(c *gin.Context) {
 	var req request.RunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		l.Warn("invalid run request", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.BadRequest(c, err.Error())
 		return
 	}
 
@@ -86,7 +87,7 @@ func (h *SubmissionHandler) Run(c *gin.Context) {
 	id, err := h.submissionUC.Run(c.Request.Context(), &input)
 	if err != nil {
 		l.Error("failed to create run submission", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httperr.Internal(c)
 		return
 	}
 
@@ -94,7 +95,7 @@ func (h *SubmissionHandler) Run(c *gin.Context) {
 
 	if err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.RedisConfig.RunQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes()); err != nil {
 		l.Error("failed to enqueue run submission", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httperr.Internal(c)
 		return
 	}
 
@@ -109,7 +110,7 @@ func (h *SubmissionHandler) GetStatus(c *gin.Context) {
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		l.Warn("invalid submission id param", zap.String("id_param", idStr))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.BadRequest(c, "submission id must be an integer")
 		return
 	}
 
@@ -118,7 +119,7 @@ func (h *SubmissionHandler) GetStatus(c *gin.Context) {
 	sub, err := h.submissionUC.GetByID(c.Request.Context(), id)
 	if err != nil {
 		l.Warn("submission not found", zap.Error(err))
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		httperr.NotFound(c, "submission not found")
 		return
 	}
 

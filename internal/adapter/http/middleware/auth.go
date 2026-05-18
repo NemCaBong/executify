@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/NemCaBong/executify/internal/application/user"
 	"github.com/NemCaBong/executify/internal/logger"
+	"github.com/NemCaBong/executify/pkg/httperr"
 )
 
 const ContextKeyUserClaims = "user_claims"
@@ -19,7 +19,7 @@ func Auth(jwtSecret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or malformed authorization header"})
+			httperr.AbortUnauthorized(c, "missing or malformed authorization header")
 			return
 		}
 
@@ -33,7 +33,7 @@ func Auth(jwtSecret []byte) gin.HandlerFunc {
 			return jwtSecret, nil
 		})
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired access token"})
+			httperr.AbortUnauthorized(c, "invalid or expired access token")
 			return
 		}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/NemCaBong/executify/internal/adapter/http/request"
 	"github.com/NemCaBong/executify/internal/adapter/http/response"
 	"github.com/NemCaBong/executify/internal/application/user"
+	"github.com/NemCaBong/executify/pkg/httperr"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +22,7 @@ func NewAuthHandler(userUC *user.Usecase) *AuthHandler {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req request.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.BadRequest(c, err.Error())
 		return
 	}
 
@@ -31,11 +32,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password: req.Password,
 	})
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, user.ErrEmailTaken) || errors.Is(err, user.ErrUsernameTaken) {
-			status = http.StatusConflict
+		switch {
+		case errors.Is(err, user.ErrEmailTaken), errors.Is(err, user.ErrUsernameTaken):
+			httperr.Conflict(c, err.Error())
+		default:
+			httperr.Internal(c)
 		}
-		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -45,7 +47,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req request.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.BadRequest(c, err.Error())
 		return
 	}
 
@@ -54,13 +56,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Password: req.Password,
 	})
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, user.ErrInvalidCreds) {
-			status = http.StatusUnauthorized
-		} else if errors.Is(err, user.ErrInactiveUser) {
-			status = http.StatusForbidden
+		switch {
+		case errors.Is(err, user.ErrInvalidCreds):
+			httperr.Unauthorized(c, err.Error())
+		case errors.Is(err, user.ErrInactiveUser):
+			httperr.Forbidden(c, err.Error())
+		default:
+			httperr.Internal(c)
 		}
-		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -70,19 +73,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	var req request.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.BadRequest(c, err.Error())
 		return
 	}
 
 	out, err := h.userUC.Refresh(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, user.ErrInvalidToken) {
-			status = http.StatusUnauthorized
-		} else if errors.Is(err, user.ErrInactiveUser) {
-			status = http.StatusForbidden
+		switch {
+		case errors.Is(err, user.ErrInvalidToken):
+			httperr.Unauthorized(c, err.Error())
+		case errors.Is(err, user.ErrInactiveUser):
+			httperr.Forbidden(c, err.Error())
+		default:
+			httperr.Internal(c)
 		}
-		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -92,16 +96,17 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 func (h *AuthHandler) Logout(c *gin.Context) {
 	var req request.LogoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.BadRequest(c, err.Error())
 		return
 	}
 
 	if err := h.userUC.Logout(c.Request.Context(), req.RefreshToken); err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, user.ErrInvalidToken) {
-			status = http.StatusUnauthorized
+		switch {
+		case errors.Is(err, user.ErrInvalidToken):
+			httperr.Unauthorized(c, err.Error())
+		default:
+			httperr.Internal(c)
 		}
-		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 

@@ -8,6 +8,7 @@ import (
 	"github.com/NemCaBong/executify/internal/adapter/http/request"
 	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/domain"
+	"github.com/NemCaBong/executify/pkg/httperr"
 )
 
 type ProblemHandler struct {
@@ -21,7 +22,7 @@ func NewProblemHandler(problemUC *problem.Usecase) *ProblemHandler {
 func (h *ProblemHandler) Upsert(c *gin.Context) {
 	var req request.UpsertProblemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.BadRequest(c, err.Error())
 		return
 	}
 
@@ -67,7 +68,7 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 
 	result, err := h.problemUC.Upsert(c.Request.Context(), prob)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		httperr.Internal(c)
 		return
 	}
 
