@@ -60,8 +60,6 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 		WallTimeLimit:            req.WallTimeLimit,
 		StackLimit:               req.StackLimit,
 		MaxProcessesAndOrThreads: req.MaxProcessesAndOrThreads,
-		TemplateCode:             req.TemplateCode,
-		WrapperCode:              req.WrapperCode,
 		Hints:                    req.Hints,
 		Tags:                     tags,
 	}

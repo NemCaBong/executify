@@ -21,16 +21,16 @@ func NewUsecase(repo Repository, problemRepo problem.Repository) *Usecase {
 	}
 }
 
-func (u *Usecase) buildFullSourceCode(ctx context.Context, problemID int, userCode string) (string, error) {
-	prob, err := u.problemRepo.GetByID(ctx, problemID)
+func (u *Usecase) buildFullSourceCode(ctx context.Context, problemID, languageID int, userCode string) (string, error) {
+	wrapper, err := u.problemRepo.GetWrapperCode(ctx, problemID, languageID)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch problem %d: %w", problemID, err)
+		return "", fmt.Errorf("failed to fetch wrapper for problem %d / language %d: %w", problemID, languageID, err)
 	}
-	return strings.Replace(prob.WrapperCode, "{{.}}", userCode, 1), nil
+	return strings.Replace(wrapper, "{{.}}", userCode, 1), nil
 }
 
 func (u *Usecase) Submit(ctx context.Context, input *CreateSubmissionInput) (int, error) {
-	fullCode, err := u.buildFullSourceCode(ctx, input.ProblemID, input.SourceCode)
+	fullCode, err := u.buildFullSourceCode(ctx, input.ProblemID, input.LanguageID, input.SourceCode)
 	if err != nil {
 		return 0, err
 	}
@@ -45,7 +45,7 @@ func (u *Usecase) Submit(ctx context.Context, input *CreateSubmissionInput) (int
 }
 
 func (u *Usecase) Run(ctx context.Context, input *CreateRunInput) (int, error) {
-	fullCode, err := u.buildFullSourceCode(ctx, input.ProblemID, input.SourceCode)
+	fullCode, err := u.buildFullSourceCode(ctx, input.ProblemID, input.LanguageID, input.SourceCode)
 	if err != nil {
 		return 0, err
 	}

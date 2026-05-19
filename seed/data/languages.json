@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Python 3.12",
+    "version": "CPython 3.12.x",
+    "source_file": "main.py",
+    "compile_cmd": null,
+    "run_cmd": "python3 main.py",
+    "notes": "Requires python3 (>=3.10) installed on the sandbox host. Tested against CPython 3.12 (Ubuntu 24.04 default)."
+  },
+  {
+    "name": "C++17 (g++ 13)",
+    "version": "g++ 13.x, -std=c++17",
+    "source_file": "main.cpp",
+    "compile_cmd": "g++ -std=c++17 -O2 -pipe -o main main.cpp",
+    "run_cmd": "./main",
+    "notes": "Requires g++ >=10 on the sandbox host. Tested against GCC 13 (Ubuntu 24.04 default)."
+  },
+  {
+    "name": "Go 1.22",
+    "version": "go1.22.x",
+    "source_file": "main.go",
+    "compile_cmd": "GOCACHE=/tmp/.gocache GOPATH=/tmp/.gopath go build -o main main.go",
+    "run_cmd": "./main",
+    "notes": "Requires go >=1.20 on the sandbox host. Tested against Go 1.22. GOCACHE/GOPATH point to /tmp because the sandbox HOME is empty; /tmp is mounted by go-isolate."
+  }
+]

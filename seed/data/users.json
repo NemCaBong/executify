@@ -1,0 +1,9 @@
+[
+  {
+    "email": "admin@executify.local",
+    "username": "admin",
+    "password": "admin12345",
+    "is_active": true,
+    "note": "Default admin for local development. Rotate the password before deploying anywhere shared."
+  }
+]

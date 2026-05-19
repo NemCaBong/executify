@@ -3,10 +3,11 @@ package repository
 import (
 	"context"
 
+	"gorm.io/gorm"
+
 	"github.com/NemCaBong/executify/internal/adapter/repository/entity"
 	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/domain"
-	"gorm.io/gorm"
 )
 
 type problemRepository struct {
@@ -39,4 +40,15 @@ func (r *problemRepository) Upsert(ctx context.Context, problem *domain.Problem)
 	}
 
 	return dbEntity.ToDomain(), nil
+}
+
+func (r *problemRepository) GetWrapperCode(ctx context.Context, problemID, languageID int) (string, error) {
+	var row entity.ProblemLanguage
+	if err := r.db.WithContext(ctx).
+		Select("wrapper_code").
+		Where("problem_id = ? AND language_id = ?", problemID, languageID).
+		First(&row).Error; err != nil {
+		return "", err
+	}
+	return row.WrapperCode, nil
 }

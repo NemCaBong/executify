@@ -1,0 +1,5 @@
+[
+  { "name": "Array",      "slug": "array" },
+  { "name": "Hash Table", "slug": "hash-table" },
+  { "name": "Easy",       "slug": "easy" }
+]

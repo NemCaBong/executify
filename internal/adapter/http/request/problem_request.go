@@ -25,8 +25,6 @@ type UpsertProblemRequest struct {
 	WallTimeLimit            *float64   `json:"wall_time_limit"`
 	StackLimit               *int       `json:"stack_limit"`
 	MaxProcessesAndOrThreads *int       `json:"max_processes_and_or_threads"`
-	TemplateCode             string     `json:"template_code" binding:"required"`
-	WrapperCode              string     `json:"wrapper_code" binding:"required"`
 	Hints                    []string   `json:"hints"`
 	Tags                     []TagInput `json:"tags"`
 }

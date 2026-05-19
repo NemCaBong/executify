@@ -33,8 +33,6 @@ type Problem struct {
 	StackLimit               *int        `json:"stack_limit"`
 	MaxProcessesAndOrThreads *int        `json:"max_processes_and_or_threads"`
 	ExpectedOutputFile       string      `json:"expected_output_file"`
-	TemplateCode             string      `json:"template_code"`
-	WrapperCode              string      `json:"wrapper_code"`
 	Tags                     []Tag       `json:"tags"`
 	Hints                    []string    `json:"hints"`
 }

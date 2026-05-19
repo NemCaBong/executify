@@ -31,8 +31,6 @@ type Problem struct {
 	StackLimit               *int                        `gorm:"column:stack_limit"`
 	MaxProcessesAndOrThreads *int                        `gorm:"column:max_processes_and_or_threads"`
 	ExpectedOutputFile       string                      `gorm:"column:expected_output_file"`
-	TemplateCode             string                      `gorm:"column:template_code"`
-	WrapperCode              string                      `gorm:"column:wrapper_code"`
 	Hints                    datatypes.JSONSlice[string] `gorm:"column:hints;type:json"`
 	Tags                     []Tag                       `gorm:"many2many:problem_tags;joinForeignKey:problem_id;joinReferences:tag_id"`
 }
@@ -72,8 +70,6 @@ func ProblemFromDomain(p *domain.Problem) *Problem {
 		StackLimit:               p.StackLimit,
 		MaxProcessesAndOrThreads: p.MaxProcessesAndOrThreads,
 		ExpectedOutputFile:       p.ExpectedOutputFile,
-		TemplateCode:             p.TemplateCode,
-		WrapperCode:              p.WrapperCode,
 		Hints:                    p.Hints,
 		Tags:                     tags,
 	}
@@ -115,8 +111,6 @@ func (p *Problem) ToDomain() *domain.Problem {
 		StackLimit:               p.StackLimit,
 		MaxProcessesAndOrThreads: p.MaxProcessesAndOrThreads,
 		ExpectedOutputFile:       p.ExpectedOutputFile,
-		TemplateCode:             p.TemplateCode,
-		WrapperCode:              p.WrapperCode,
 		Hints:                    p.Hints,
 		Tags:                     tags,
 	}
