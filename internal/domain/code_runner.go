@@ -142,7 +142,7 @@ func (r *CodeRunner) applyExecOptions() {
 	memLimitKB := prob.MemoryLimit * 1024
 	cpuTime := float64(prob.TimeLimit)
 	wallTime := cpuTime * 2.0
-	processes := 1
+	processes := 10
 
 	if prob.CPUTimeLimit != nil {
 		cpuTime = *prob.CPUTimeLimit
