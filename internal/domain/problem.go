@@ -10,6 +10,18 @@ const (
 	DifficultyHard   Difficulty = "hard"
 )
 
+type ProblemLanguageSnippet struct {
+	Language     Language
+	TemplateCode string
+	WrapperCode  string
+}
+
+type ProblemDetails struct {
+	Problem            *Problem
+	Snippet            *ProblemLanguageSnippet
+	SupportedLanguages []Language
+}
+
 type Problem struct {
 	ID                       int         `json:"id"`
 	Name                     string      `json:"name"`

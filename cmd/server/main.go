@@ -118,6 +118,7 @@ func setupRouter(app *api_http.App, jwtSecret []byte) *gin.Engine {
 			protected.POST("/submissions/run", app.SubmissionHandler.Run)
 			protected.GET("/submissions/:id", app.SubmissionHandler.GetStatus)
 			protected.PUT("/problems", app.ProblemHandler.Upsert)
+			protected.GET("/problems/:id", app.ProblemHandler.GetDetails)
 		}
 	}
 

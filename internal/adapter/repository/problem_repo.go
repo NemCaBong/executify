@@ -52,3 +52,66 @@ func (r *problemRepository) GetWrapperCode(ctx context.Context, problemID, langu
 	}
 	return row.WrapperCode, nil
 }
+
+func (r *problemRepository) GetProblemLanguageSnippet(ctx context.Context, problemID, languageID int) (*domain.ProblemLanguageSnippet, error) {
+	type joined struct {
+		TemplateCode string  `gorm:"column:template_code"`
+		WrapperCode  string  `gorm:"column:wrapper_code"`
+		LanguageID   int     `gorm:"column:language_id"`
+		Name         string  `gorm:"column:name"`
+		CompileCmd   *string `gorm:"column:compile_cmd"`
+		RunCmd       string  `gorm:"column:run_cmd"`
+		SourceFile   string  `gorm:"column:source_file"`
+	}
+	var row joined
+	err := r.db.WithContext(ctx).
+		Table("problem_languages AS pl").
+		Select("pl.template_code, pl.wrapper_code, l.id AS language_id, l.name, l.compile_cmd, l.run_cmd, l.source_file").
+		Joins("INNER JOIN languages l ON l.id = pl.language_id").
+		Where("pl.problem_id = ? AND pl.language_id = ?", problemID, languageID).
+		Take(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return &domain.ProblemLanguageSnippet{
+		TemplateCode: row.TemplateCode,
+		WrapperCode:  row.WrapperCode,
+		Language: domain.Language{
+			ID:         row.LanguageID,
+			Name:       row.Name,
+			CompileCmd: row.CompileCmd,
+			RunCmd:     row.RunCmd,
+			SourceFile: row.SourceFile,
+		},
+	}, nil
+}
+
+func (r *problemRepository) ListProblemLanguages(ctx context.Context, problemID int) ([]domain.Language, error) {
+	var rows []entity.Language
+	err := r.db.WithContext(ctx).
+		Table("languages AS l").
+		Select("l.id, l.name, l.compile_cmd, l.run_cmd, l.source_file").
+		Joins("INNER JOIN problem_languages pl ON pl.language_id = l.id").
+		Where("pl.problem_id = ?", problemID).
+		Order("l.id ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Language, len(rows))
+	for i := range rows {
+		out[i] = *rows[i].ToDomain()
+	}
+	return out, nil
+}
+
+func (r *problemRepository) FindLanguageByName(ctx context.Context, query string) (*domain.Language, error) {
+	var lang entity.Language
+	if err := r.db.WithContext(ctx).
+		Where("LOWER(name) LIKE ?", "%"+query+"%").
+		Order("id ASC").
+		First(&lang).Error; err != nil {
+		return nil, err
+	}
+	return lang.ToDomain(), nil
+}

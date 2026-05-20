@@ -12,4 +12,16 @@ type Repository interface {
 	// GetWrapperCode returns the wrapper template registered for a
 	// (problem, language) pair from problem_languages.
 	GetWrapperCode(ctx context.Context, problemID, languageID int) (string, error)
+
+	// GetProblemLanguageSnippet returns the template + wrapper code along
+	// with language metadata for a (problem, language) pair.
+	GetProblemLanguageSnippet(ctx context.Context, problemID, languageID int) (*domain.ProblemLanguageSnippet, error)
+
+	// ListProblemLanguages returns every language registered for the problem,
+	// ordered by language ID.
+	ListProblemLanguages(ctx context.Context, problemID int) ([]domain.Language, error)
+
+	// FindLanguageByName does a case-insensitive substring match against the
+	// language name and returns the first hit (by ID).
+	FindLanguageByName(ctx context.Context, query string) (*domain.Language, error)
 }

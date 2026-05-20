@@ -1,13 +1,18 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/NemCaBong/executify/internal/adapter/http/request"
+	"github.com/NemCaBong/executify/internal/adapter/http/response"
 	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/domain"
+	"github.com/NemCaBong/executify/internal/logger"
 	"github.com/NemCaBong/executify/pkg/httperr"
 )
 
@@ -71,4 +76,36 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *ProblemHandler) GetDetails(c *gin.Context) {
+	l := logger.FromContext(c.Request.Context())
+
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		l.Warn("invalid problem id param", zap.String("id_param", idStr))
+		httperr.BadRequest(c, "problem id must be an integer")
+		return
+	}
+
+	languageQuery := c.Query("language")
+
+	details, err := h.problemUC.GetDetails(c.Request.Context(), id, languageQuery)
+	if err != nil {
+		switch {
+		case errors.Is(err, problem.ErrProblemNotFound):
+			httperr.NotFound(c, "problem not found")
+		case errors.Is(err, problem.ErrLanguageNotFound):
+			httperr.BadRequest(c, "language not found")
+		case errors.Is(err, problem.ErrLanguageNotSupported):
+			httperr.BadRequest(c, "language not supported for this problem")
+		default:
+			l.Error("failed to load problem details", zap.Int("problem_id", id), zap.Error(err))
+			httperr.Internal(c)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, response.NewProblemDetailsResponse(details))
 }
