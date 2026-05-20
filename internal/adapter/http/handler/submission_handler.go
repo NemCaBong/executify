@@ -18,16 +18,16 @@ import (
 )
 
 type SubmissionHandler struct {
-	cfg           *config.Config
-	submissionUC  *submission.Usecase
-	queueProducer appqueue.Producer
+	cfg          *config.Config
+	submissionUC *submission.Usecase
+	enqueuer     appqueue.SubmissionEnqueuer
 }
 
-func NewSubmissionHandler(cfg *config.Config, submissionUC *submission.Usecase, queueProducer appqueue.Producer) *SubmissionHandler {
+func NewSubmissionHandler(cfg *config.Config, submissionUC *submission.Usecase, enqueuer appqueue.SubmissionEnqueuer) *SubmissionHandler {
 	return &SubmissionHandler{
-		cfg:           cfg,
-		submissionUC:  submissionUC,
-		queueProducer: queueProducer,
+		cfg:          cfg,
+		submissionUC: submissionUC,
+		enqueuer:     enqueuer,
 	}
 }
 
@@ -56,13 +56,13 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 
 	l = l.With(zap.Int("submission_id", id))
 
-	if err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.RedisConfig.SubmitQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes()); err != nil {
+	if err = h.enqueuer.EnqueueSubmit(c.Request.Context(), id); err != nil {
 		l.Error("failed to enqueue submission", zap.Error(err))
 		httperr.Internal(c)
 		return
 	}
 
-	l.Info("submission enqueued", zap.String("queue", h.cfg.RedisConfig.SubmitQueueName))
+	l.Info("submission enqueued", zap.String("queue", queue.QueueSubmit))
 	c.JSON(http.StatusAccepted, response.NewSubmitResponse(id))
 }
 
@@ -93,13 +93,13 @@ func (h *SubmissionHandler) Run(c *gin.Context) {
 
 	l = l.With(zap.Int("submission_id", id))
 
-	if err = h.queueProducer.Enqueue(c.Request.Context(), h.cfg.RedisConfig.RunQueueName, queue.SubmissionMessage{SubmissionID: id}.ToBytes()); err != nil {
+	if err = h.enqueuer.EnqueueRun(c.Request.Context(), id); err != nil {
 		l.Error("failed to enqueue run submission", zap.Error(err))
 		httperr.Internal(c)
 		return
 	}
 
-	l.Info("run submission enqueued", zap.String("queue", h.cfg.RedisConfig.RunQueueName))
+	l.Info("run submission enqueued", zap.String("queue", queue.QueueRun))
 	c.JSON(http.StatusAccepted, response.NewSubmitResponse(id))
 }
 

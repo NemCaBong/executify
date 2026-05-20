@@ -1,15 +1,15 @@
 package main
 
 import (
-	"context"
 	"os"
-	"os/signal"
-	"syscall"
+	"time"
 
+	"github.com/hibiken/asynq"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/NemCaBong/executify/internal/adapter/queue"
 	"github.com/NemCaBong/executify/internal/adapter/repository"
 	"github.com/NemCaBong/executify/internal/adapter/worker"
 	"github.com/NemCaBong/executify/internal/application/submission"
@@ -17,16 +17,14 @@ import (
 	"github.com/NemCaBong/executify/internal/logger"
 )
 
+const workerShutdownTimeout = 30 * time.Second
+
 func init() {
-	viper.SetDefault("WORKER_COUNT", 1)
-	viper.SetDefault("WORKER_TYPE", 1) // 1 for submit worker, 2 for run worker
-	viper.AutomaticEnv()               // read from environment variables
+	viper.AutomaticEnv()
 }
 
 func main() {
-	cmd := &cobra.Command{
-		Use: "worker",
-	}
+	cmd := &cobra.Command{Use: "worker"}
 
 	cmd.AddCommand(&cobra.Command{
 		Use: "run",
@@ -49,15 +47,23 @@ func HandleRunSubmissions(_ *cobra.Command, _ []string) {
 
 	cfg := config.Load()
 	db := config.NewMySQLConnection(cfg)
-	cache := config.NewRedisClient(cfg)
 	submissionRepo := repository.NewSubmissionRepository(db)
 	problemRepo := repository.NewProblemRepository(db)
 	submissionUC := submission.NewUsecase(submissionRepo, problemRepo)
-	runWorker := worker.NewRunWorker(&cfg, cache, submissionUC)
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
-	if err := runWorker.Execute(ctx); err != nil {
+	handler := worker.NewRunHandler(&cfg, submissionUC)
+	errorHandler := worker.NewErrorHandler(submissionUC)
+	srv := newAsynqServer(cfg, cfg.RunWorkerCount, queue.QueueRun, errorHandler)
+
+	mux := asynq.NewServeMux()
+	mux.HandleFunc(queue.TypeSubmissionRun, handler.Handle)
+
+	log.Info("starting run workers",
+		zap.Int("concurrency", cfg.RunWorkerCount),
+		zap.String("queue", queue.QueueRun),
+	)
+
+	if err := srv.Run(mux); err != nil {
 		log.Fatal("run worker exited with error", zap.Error(err))
 	}
 }
@@ -68,15 +74,35 @@ func HandleSubmitSubmissions(_ *cobra.Command, _ []string) {
 
 	cfg := config.Load()
 	db := config.NewMySQLConnection(cfg)
-	cache := config.NewRedisClient(cfg)
 	submissionRepo := repository.NewSubmissionRepository(db)
 	problemRepo := repository.NewProblemRepository(db)
 	submissionUC := submission.NewUsecase(submissionRepo, problemRepo)
-	submitWorker := worker.NewSubmitWorker(&cfg, cache, submissionUC)
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
-	if err := submitWorker.Execute(ctx); err != nil {
+	handler := worker.NewSubmitHandler(&cfg, submissionUC)
+	errorHandler := worker.NewErrorHandler(submissionUC)
+	srv := newAsynqServer(cfg, cfg.SubmitWorkerCount, queue.QueueSubmit, errorHandler)
+
+	mux := asynq.NewServeMux()
+	mux.HandleFunc(queue.TypeSubmissionSubmit, handler.Handle)
+
+	log.Info("starting submit workers",
+		zap.Int("concurrency", cfg.SubmitWorkerCount),
+		zap.String("queue", queue.QueueSubmit),
+	)
+
+	if err := srv.Run(mux); err != nil {
 		log.Fatal("submit worker exited with error", zap.Error(err))
 	}
+}
+
+func newAsynqServer(cfg config.Config, concurrency int, queueName string, errorHandler asynq.ErrorHandler) *asynq.Server {
+	return asynq.NewServer(
+		cfg.RedisConfig.AsynqRedisOpt(),
+		asynq.Config{
+			Concurrency:     concurrency,
+			Queues:          map[string]int{queueName: 1},
+			ShutdownTimeout: workerShutdownTimeout,
+			ErrorHandler:    errorHandler,
+		},
+	)
 }

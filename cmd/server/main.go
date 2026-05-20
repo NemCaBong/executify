@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	api_http "github.com/NemCaBong/executify/internal/adapter/http"
 	http_handler "github.com/NemCaBong/executify/internal/adapter/http/handler"
 	"github.com/NemCaBong/executify/internal/adapter/http/middleware"
-	"github.com/NemCaBong/executify/internal/adapter/queue/redis"
+	"github.com/NemCaBong/executify/internal/adapter/queue"
 	"github.com/NemCaBong/executify/internal/adapter/repository"
 	"github.com/NemCaBong/executify/internal/application/problem"
 	"github.com/NemCaBong/executify/internal/application/submission"
@@ -34,19 +35,20 @@ func main() {
 			log := logger.Init()
 			defer log.Sync() //nolint:errcheck
 
-			// Create context that listens for the interrupt signal from the OS.
 			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
 
 			cfg := config.Load()
 			db := config.NewMySQLConnection(cfg)
-			redisClient := config.NewRedisClient(cfg)
+
+			asynqClient := asynq.NewClient(cfg.RedisConfig.AsynqRedisOpt())
+			defer asynqClient.Close()
 
 			submissionRepo := repository.NewSubmissionRepository(db)
 			problemRepo := repository.NewProblemRepository(db)
 			userRepo := repository.NewUserRepository(db)
 			refreshTokenRepo := repository.NewRefreshTokenRepository(db)
-			redisProducer := redis.NewRedisProducer(redisClient)
+			enqueuer := queue.NewAsynqProducer(asynqClient)
 
 			submissionUC := submission.NewUsecase(submissionRepo, problemRepo)
 			problemUC := problem.NewUsecase(problemRepo)
@@ -57,7 +59,7 @@ func main() {
 				cfg.AccessTokenTTL,
 				cfg.RefreshTokenTTL,
 			)
-			submissionHandler := http_handler.NewSubmissionHandler(&cfg, submissionUC, redisProducer)
+			submissionHandler := http_handler.NewSubmissionHandler(&cfg, submissionUC, enqueuer)
 			problemHandler := http_handler.NewProblemHandler(problemUC)
 			authHandler := http_handler.NewAuthHandler(userUC)
 			app := api_http.NewApp(submissionHandler, problemHandler, authHandler)

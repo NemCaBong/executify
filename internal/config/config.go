@@ -1,12 +1,10 @@
 package config
 
 import (
-	"context"
 	"os"
 	"strconv"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -84,22 +82,4 @@ func NewMySQLConnection(config Config) *gorm.DB {
 	db.SetConnMaxIdleTime(8 * time.Minute)
 
 	return sqlDB
-}
-
-func NewRedisClient(config Config) *redis.Client {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     config.RedisConfig.Address,
-		Password: config.RedisConfig.Password,
-		DB:       config.RedisConfig.DB,
-	})
-
-	// Check if the connection is alive
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		panic("failed to connect to redis: " + err.Error())
-	}
-
-	return rdb
 }
