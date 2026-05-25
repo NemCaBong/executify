@@ -3,7 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -81,17 +81,15 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 func (h *ProblemHandler) GetDetails(c *gin.Context) {
 	l := logger.FromContext(c.Request.Context())
 
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		l.Warn("invalid problem id param", zap.String("id_param", idStr))
-		httperr.BadRequest(c, "problem id must be an integer")
+	slug := strings.TrimSpace(c.Param("slug"))
+	if slug == "" {
+		httperr.BadRequest(c, "problem slug is required")
 		return
 	}
 
 	languageQuery := c.Query("language")
 
-	details, err := h.problemUC.GetDetails(c.Request.Context(), id, languageQuery)
+	details, err := h.problemUC.GetDetails(c.Request.Context(), slug, languageQuery)
 	if err != nil {
 		switch {
 		case errors.Is(err, problem.ErrProblemNotFound):
@@ -101,7 +99,7 @@ func (h *ProblemHandler) GetDetails(c *gin.Context) {
 		case errors.Is(err, problem.ErrLanguageNotSupported):
 			httperr.BadRequest(c, "language not supported for this problem")
 		default:
-			l.Error("failed to load problem details", zap.Int("problem_id", id), zap.Error(err))
+			l.Error("failed to load problem details", zap.String("problem_slug", slug), zap.Error(err))
 			httperr.Internal(c)
 		}
 		return

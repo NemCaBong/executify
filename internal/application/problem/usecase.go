@@ -35,8 +35,8 @@ func (u *Usecase) Upsert(ctx context.Context, problem *domain.Problem) (*domain.
 //
 // languageQuery is matched case-insensitively against language names. When
 // empty, Python is used as the default.
-func (u *Usecase) GetDetails(ctx context.Context, id int, languageQuery string) (*domain.ProblemDetails, error) {
-	prob, err := u.repo.GetByID(ctx, id)
+func (u *Usecase) GetDetails(ctx context.Context, slug string, languageQuery string) (*domain.ProblemDetails, error) {
+	prob, err := u.repo.GetBySlug(ctx, slug)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrProblemNotFound

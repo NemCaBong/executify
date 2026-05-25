@@ -18,9 +18,9 @@ func NewProblemRepository(db *gorm.DB) problem.Repository {
 	return &problemRepository{db: db}
 }
 
-func (r *problemRepository) GetByID(ctx context.Context, id int) (*domain.Problem, error) {
+func (r *problemRepository) GetBySlug(ctx context.Context, slug string) (*domain.Problem, error) {
 	var dbEntity entity.Problem
-	if err := r.db.WithContext(ctx).Preload("Tags").First(&dbEntity, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Tags").First(&dbEntity, "slug = ?", slug).Error; err != nil {
 		return nil, err
 	}
 	return dbEntity.ToDomain(), nil

@@ -7,7 +7,7 @@ import (
 )
 
 type Repository interface {
-	GetByID(ctx context.Context, id int) (*domain.Problem, error)
+	GetBySlug(ctx context.Context, slug string) (*domain.Problem, error)
 	Upsert(ctx context.Context, problem *domain.Problem) (*domain.Problem, error)
 	// GetWrapperCode returns the wrapper template registered for a
 	// (problem, language) pair from problem_languages.

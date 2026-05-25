@@ -112,13 +112,14 @@ func setupRouter(app *api_http.App, jwtSecret []byte) *gin.Engine {
 			auth.POST("/logout", app.AuthHandler.Logout)
 		}
 
+		v1.GET("/problems/:slug", app.ProblemHandler.GetDetails)
+
 		protected := v1.Group("", middleware.Auth(jwtSecret))
 		{
 			protected.POST("/submissions", app.SubmissionHandler.Submit)
 			protected.POST("/submissions/run", app.SubmissionHandler.Run)
 			protected.GET("/submissions/:id", app.SubmissionHandler.GetStatus)
 			protected.PUT("/problems", app.ProblemHandler.Upsert)
-			protected.GET("/problems/:id", app.ProblemHandler.GetDetails)
 		}
 	}
 
