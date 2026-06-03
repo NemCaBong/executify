@@ -33,6 +33,10 @@ type Problem struct {
 	ExpectedOutputFile       string                      `gorm:"column:expected_output_file"`
 	Hints                    datatypes.JSONSlice[string] `gorm:"column:hints;type:json"`
 	Tags                     []Tag                       `gorm:"many2many:problem_tags;joinForeignKey:problem_id;joinReferences:tag_id"`
+	// has-many on problem_id. No DB foreign key (matches existing convention);
+	// GORM associations work on column name regardless. Managed manually on
+	// write (see problemRepository.Upsert) and Preloaded on read.
+	IOSchema []ProblemIOSchema `gorm:"foreignKey:ProblemID;references:ID"`
 }
 
 func (Problem) TableName() string {
@@ -48,6 +52,10 @@ func ProblemFromDomain(p *domain.Problem) *Problem {
 	if p.Difficulty != nil {
 		s := string(*p.Difficulty)
 		difficulty = &s
+	}
+	ioSchema := make([]ProblemIOSchema, len(p.IOSchema))
+	for i, f := range p.IOSchema {
+		ioSchema[i] = ProblemIOSchemaFromDomain(p.ID, f)
 	}
 	return &Problem{
 		ID:                       p.ID,
@@ -72,6 +80,7 @@ func ProblemFromDomain(p *domain.Problem) *Problem {
 		ExpectedOutputFile:       p.ExpectedOutputFile,
 		Hints:                    p.Hints,
 		Tags:                     tags,
+		IOSchema:                 ioSchema,
 	}
 }
 
@@ -87,6 +96,10 @@ func (p *Problem) ToDomain() *domain.Problem {
 	if p.Difficulty != nil {
 		d := domain.Difficulty(*p.Difficulty)
 		difficulty = &d
+	}
+	ioSchema := make([]domain.ProblemIOField, len(p.IOSchema))
+	for i := range p.IOSchema {
+		ioSchema[i] = p.IOSchema[i].ToDomain()
 	}
 	return &domain.Problem{
 		ID:                       p.ID,
@@ -113,5 +126,6 @@ func (p *Problem) ToDomain() *domain.Problem {
 		ExpectedOutputFile:       p.ExpectedOutputFile,
 		Hints:                    p.Hints,
 		Tags:                     tags,
+		IOSchema:                 ioSchema,
 	}
 }

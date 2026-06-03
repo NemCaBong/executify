@@ -20,7 +20,12 @@ func NewProblemRepository(db *gorm.DB) problem.Repository {
 
 func (r *problemRepository) GetBySlug(ctx context.Context, slug string) (*domain.Problem, error) {
 	var dbEntity entity.Problem
-	if err := r.db.WithContext(ctx).Preload("Tags").First(&dbEntity, "slug = ?", slug).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Preload("Tags").
+		Preload("IOSchema", func(db *gorm.DB) *gorm.DB {
+			return db.Order("kind ASC, line_index ASC")
+		}).
+		First(&dbEntity, "slug = ?", slug).Error; err != nil {
 		return nil, err
 	}
 	return dbEntity.ToDomain(), nil
@@ -29,13 +34,33 @@ func (r *problemRepository) GetBySlug(ctx context.Context, slug string) (*domain
 func (r *problemRepository) Upsert(ctx context.Context, problem *domain.Problem) (*domain.Problem, error) {
 	dbEntity := entity.ProblemFromDomain(problem)
 
-	// Omit Tags from the main save so GORM doesn't try to upsert them as rows.
-	if err := r.db.WithContext(ctx).Omit("Tags.*").Save(dbEntity).Error; err != nil {
-		return nil, err
-	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Omit associations we manage by hand so Save touches only the problem row.
+		if err := tx.Omit("Tags.*", "IOSchema").Save(dbEntity).Error; err != nil {
+			return err
+		}
 
-	// Replace syncs the join-table rows; dbEntity.Tags is already correct in memory.
-	if err := r.db.WithContext(ctx).Model(dbEntity).Association("Tags").Replace(dbEntity.Tags); err != nil {
+		// Replace syncs the join-table rows; dbEntity.Tags is already correct in memory.
+		if err := tx.Model(dbEntity).Association("Tags").Replace(dbEntity.Tags); err != nil {
+			return err
+		}
+
+		// Replace the IO schema: drop the old rows then insert the new set.
+		if err := tx.Where("problem_id = ?", dbEntity.ID).
+			Delete(&entity.ProblemIOSchema{}).Error; err != nil {
+			return err
+		}
+		if len(dbEntity.IOSchema) > 0 {
+			for i := range dbEntity.IOSchema {
+				dbEntity.IOSchema[i].ProblemID = dbEntity.ID
+			}
+			if err := tx.Create(&dbEntity.IOSchema).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 

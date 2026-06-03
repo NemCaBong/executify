@@ -36,6 +36,16 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 		tags[i] = domain.Tag{ID: t.ID, Name: t.Name, Slug: t.Slug}
 	}
 
+	ioSchema := make([]domain.ProblemIOField, len(req.IOSchema))
+	for i, f := range req.IOSchema {
+		ioSchema[i] = domain.ProblemIOField{
+			Kind:      domain.IOKind(f.Kind),
+			LineIndex: f.LineIndex,
+			KeyName:   f.KeyName,
+			DataType:  f.DataType,
+		}
+	}
+
 	var difficulty *domain.Difficulty
 	if req.Difficulty != nil {
 		d := domain.Difficulty(*req.Difficulty)
@@ -67,6 +77,7 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 		MaxProcessesAndOrThreads: req.MaxProcessesAndOrThreads,
 		Hints:                    req.Hints,
 		Tags:                     tags,
+		IOSchema:                 ioSchema,
 	}
 
 	result, err := h.problemUC.Upsert(c.Request.Context(), prob)

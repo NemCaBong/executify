@@ -23,6 +23,15 @@ type ProblemSnippetResponse struct {
 	WrapperCode  string                     `json:"wrapper_code"`
 }
 
+// ProblemIOFieldResponse is one named value the FE renders as a key/value
+// input.
+type ProblemIOFieldResponse struct {
+	Name        string      `json:"name"`
+	DataType    string      `json:"data_type"`
+	LineIndex   int         `json:"line_index"`
+	SampleValue interface{} `json:"sample_value"`
+}
+
 type ProblemDetailsResponse struct {
 	ID                 int                          `json:"id"`
 	Name               string                       `json:"name"`
@@ -33,14 +42,29 @@ type ProblemDetailsResponse struct {
 	SubmissionCount    int                          `json:"submission_count"`
 	Description        string                       `json:"description"`
 	OutputFormat       string                       `json:"output_format"`
-	SampleInput        string                       `json:"sample_input"`
-	SampleOutput       string                       `json:"sample_output"`
 	Hints              []string                     `json:"hints"`
 	Tags               []ProblemTagResponse         `json:"tags"`
 	CreatedAt          time.Time                    `json:"created_at"`
 	UpdatedAt          time.Time                    `json:"updated_at"`
 	Snippet            ProblemSnippetResponse       `json:"snippet"`
 	SupportedLanguages []ProblemLanguageRefResponse `json:"supported_languages"`
+	Inputs             []ProblemIOFieldResponse     `json:"inputs"`
+	Outputs            []ProblemIOFieldResponse     `json:"outputs"`
+}
+
+// buildIOFields assembles the response objects for one kind, attaching each
+// field's parsed sample value (looked up by line_index).
+func buildIOFields(fields []domain.ProblemIOField, values map[int]interface{}) []ProblemIOFieldResponse {
+	out := make([]ProblemIOFieldResponse, len(fields))
+	for i, f := range fields {
+		out[i] = ProblemIOFieldResponse{
+			Name:        f.KeyName,
+			DataType:    f.DataType,
+			LineIndex:   f.LineIndex,
+			SampleValue: values[f.LineIndex],
+		}
+	}
+	return out
 }
 
 func NewProblemDetailsResponse(d *domain.ProblemDetails) *ProblemDetailsResponse {
@@ -67,6 +91,18 @@ func NewProblemDetailsResponse(d *domain.ProblemDetails) *ProblemDetailsResponse
 		langs[i] = ProblemLanguageRefResponse{ID: l.ID, Name: l.Name}
 	}
 
+	var inputFields, outputFields []domain.ProblemIOField
+	for _, f := range p.IOSchema {
+		if f.Kind == domain.IOKindOutput {
+			outputFields = append(outputFields, f)
+		} else {
+			inputFields = append(inputFields, f)
+		}
+	}
+
+	inputValues := domain.ParseSampleValues(inputFields, p.SampleInput)
+	outputValues := domain.ParseSampleValues(outputFields, p.SampleOutput)
+
 	return &ProblemDetailsResponse{
 		ID:              p.ID,
 		Name:            p.Name,
@@ -77,8 +113,6 @@ func NewProblemDetailsResponse(d *domain.ProblemDetails) *ProblemDetailsResponse
 		SubmissionCount: p.SubmissionCount,
 		Description:     p.Description,
 		OutputFormat:    p.OutputFormat,
-		SampleInput:     p.SampleInput,
-		SampleOutput:    p.SampleOutput,
 		Hints:           hints,
 		Tags:            tags,
 		CreatedAt:       p.CreatedAt,
@@ -92,5 +126,7 @@ func NewProblemDetailsResponse(d *domain.ProblemDetails) *ProblemDetailsResponse
 			WrapperCode:  d.Snippet.WrapperCode,
 		},
 		SupportedLanguages: langs,
+		Inputs:             buildIOFields(inputFields, inputValues),
+		Outputs:            buildIOFields(outputFields, outputValues),
 	}
 }
