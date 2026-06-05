@@ -32,6 +32,7 @@ type UpsertProblemRequest struct {
 	WallTimeLimit            *float64        `json:"wall_time_limit"`
 	StackLimit               *int            `json:"stack_limit"`
 	MaxProcessesAndOrThreads *int            `json:"max_processes_and_or_threads"`
+	FloatPrecision           *int            `json:"float_precision" binding:"omitempty,min=0"`
 	Hints                    []string        `json:"hints"`
 	Tags                     []TagInput      `json:"tags"`
 	IOSchema                 []IOSchemaInput `json:"io_schema"`

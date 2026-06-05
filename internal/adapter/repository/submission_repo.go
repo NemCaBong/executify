@@ -51,7 +51,14 @@ func (r *submissionRepository) Update(ctx context.Context, submission *domain.Su
 
 func (r *submissionRepository) GetWithDetailsByID(ctx context.Context, id int) (*domain.SubmissionWithDetails, error) {
 	var dbEntity entity.Submission
-	err := r.db.WithContext(ctx).Joins("Language").Joins("Problem").Where("submissions.id = ?", id).First(&dbEntity).Error
+	err := r.db.WithContext(ctx).
+		Joins("Language").
+		Joins("Problem").
+		Preload("Problem.IOSchema", func(db *gorm.DB) *gorm.DB {
+			return db.Order("kind ASC, line_index ASC")
+		}).
+		Where("submissions.id = ?", id).
+		First(&dbEntity).Error
 	if err != nil {
 		return nil, err
 	}

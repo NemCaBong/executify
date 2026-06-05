@@ -61,6 +61,7 @@ type Problem struct {
 	WallTimeLimit            *float64         `json:"wall_time_limit"`
 	StackLimit               *int             `json:"stack_limit"`
 	MaxProcessesAndOrThreads *int             `json:"max_processes_and_or_threads"`
+	FloatPrecision           *int             `json:"float_precision"`
 	ExpectedOutputFile       string           `json:"expected_output_file"`
 	Tags                     []Tag            `json:"tags"`
 	Hints                    []string         `json:"hints"`

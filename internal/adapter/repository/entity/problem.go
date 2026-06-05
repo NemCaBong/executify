@@ -30,6 +30,7 @@ type Problem struct {
 	WallTimeLimit            *float64                    `gorm:"column:wall_time_limit"`
 	StackLimit               *int                        `gorm:"column:stack_limit"`
 	MaxProcessesAndOrThreads *int                        `gorm:"column:max_processes_and_or_threads"`
+	FloatPrecision           *int                        `gorm:"column:float_precision"`
 	ExpectedOutputFile       string                      `gorm:"column:expected_output_file"`
 	Hints                    datatypes.JSONSlice[string] `gorm:"column:hints;type:json"`
 	Tags                     []Tag                       `gorm:"many2many:problem_tags;joinForeignKey:problem_id;joinReferences:tag_id"`
@@ -77,6 +78,7 @@ func ProblemFromDomain(p *domain.Problem) *Problem {
 		WallTimeLimit:            p.WallTimeLimit,
 		StackLimit:               p.StackLimit,
 		MaxProcessesAndOrThreads: p.MaxProcessesAndOrThreads,
+		FloatPrecision:           p.FloatPrecision,
 		ExpectedOutputFile:       p.ExpectedOutputFile,
 		Hints:                    p.Hints,
 		Tags:                     tags,
@@ -123,6 +125,7 @@ func (p *Problem) ToDomain() *domain.Problem {
 		WallTimeLimit:            p.WallTimeLimit,
 		StackLimit:               p.StackLimit,
 		MaxProcessesAndOrThreads: p.MaxProcessesAndOrThreads,
+		FloatPrecision:           p.FloatPrecision,
 		ExpectedOutputFile:       p.ExpectedOutputFile,
 		Hints:                    p.Hints,
 		Tags:                     tags,

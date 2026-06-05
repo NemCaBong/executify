@@ -2,20 +2,14 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
 
 // ParseSampleValues parses the multi-line sample text for ONE kind (all input
 // fields, or all output fields) into a value per field, keyed by line_index.
-//
-// Each field occupies exactly one line: the line at its line_index. The value
-// is parsed according to data_type (see ParseLineValue). Nested types
-// (int[][], string[], ...) are JSON-encoded on that single line, so a field's
-// size can vary freely without affecting the line layout of other fields.
-//
-// A field whose line_index is past the end of the sample text yields nil
-// (sample data may not cover every declared field).
 func ParseSampleValues(fields []ProblemIOField, text string) map[int]interface{} {
 	result := make(map[int]interface{}, len(fields))
 	lines := splitTextLines(text)
@@ -32,10 +26,8 @@ func ParseSampleValues(fields []ProblemIOField, text string) map[int]interface{}
 // ParseLineValue turns one raw line into a typed value, driven by data_type so
 // the data never gets to decide its own shape:
 //
-//   - string scalar            -> the line taken literally
-//   - int/float/bool scalar    -> the token parsed as that type
+//   - primitive data types     -> the token parsed as that type
 //   - any array (e.g. int[][], string[]) -> JSON-decoded ("[[1,2],[3,4]]", `["a","b]c"]`)
-//   - numeric 1D array         -> also accepts whitespace-separated form ("9 2 7 11 15") as a fallback
 func ParseLineValue(raw, dataType string) interface{} {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -45,33 +37,17 @@ func ParseLineValue(raw, dataType string) interface{} {
 	baseDataType, dimensions := splitDataType(dataType)
 
 	switch {
-	case dimensions == 0 && isStringBase(baseDataType):
-		// String scalar
-		return raw
 	case dimensions == 0:
-		return parseScalar(raw, baseDataType)
+		return parsePrimitiveData(raw, baseDataType)
 	default:
-		// Arrays: JSON is the reliable, unambiguous encoding.
+		// format as json
 		var v interface{}
 		if err := json.Unmarshal([]byte(raw), &v); err == nil {
 			return v
 		}
-		// Fallback for the space-separated numeric 1D files.
-		if dimensions == 1 && !isStringBase(baseDataType) {
-			return parseLine1D(raw, baseDataType)
-		}
+		// no fallback plan
 		return raw
 	}
-}
-
-// parseLine1D splits a single line on whitespace and parses each token.
-func parseLine1D(line, base string) []interface{} {
-	tokens := strings.Fields(line)
-	out := make([]interface{}, len(tokens))
-	for i, t := range tokens {
-		out[i] = parseScalar(t, base)
-	}
-	return out
 }
 
 // splitDataType peels trailing "[]" suffixes off a data_type, returning the
@@ -85,17 +61,8 @@ func splitDataType(dataType string) (base string, dims int) {
 	return base, dims
 }
 
-func isStringBase(base string) bool {
-	switch strings.ToLower(base) {
-	case "string", "str", "char":
-		return true
-	}
-	return false
-}
-
-// parseScalar parses a single token according to its base type, falling back
-// to the raw string for string/char types or any failed numeric parse.
-func parseScalar(value, base string) interface{} {
+// parsePrimitiveData parses a single token according to its base type.
+func parsePrimitiveData(value, base string) interface{} {
 	switch strings.ToLower(base) {
 	case "int", "int32", "int64", "long":
 		if n, err := strconv.ParseInt(value, 10, 64); err == nil {
@@ -109,6 +76,8 @@ func parseScalar(value, base string) interface{} {
 		if b, err := strconv.ParseBool(value); err == nil {
 			return b
 		}
+	case "string", "str", "char":
+		return value
 	}
 	return value
 }
@@ -122,4 +91,73 @@ func splitTextLines(s string) []string {
 		return nil
 	}
 	return strings.Split(s, "\n")
+}
+
+// CompareOutput reports whether a program's actual output matches the expected
+// output for ONE test case. When the problem declares output fields, both texts
+// are parsed field-by-field (driven by each field's data_type) and compared
+// structurally. Numeric values are compared with a floatPrecision number
+func CompareOutput(outputFields []ProblemIOField, expected, actual string, floatPrecision *int) bool {
+	if len(outputFields) == 0 {
+		return strings.TrimSpace(expected) == strings.TrimSpace(actual)
+	}
+	exp := ParseSampleValues(outputFields, expected)
+	act := ParseSampleValues(outputFields, actual)
+	for _, f := range outputFields {
+		if !compareValue(exp[f.LineIndex], act[f.LineIndex], floatPrecision) {
+			return false
+		}
+	}
+	return true
+}
+
+// compareValue deep-compares two parsed values (scalars, or nested
+// []interface{} arrays). Numbers are compared as float64 so cross-type pairs
+// (int64 from a scalar parse vs float64 from JSON decoding) still match,
+// with floatPrecision controlling the tolerance.
+func compareValue(a, b interface{}, floatPrecision *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+
+	aArr, aIsArr := a.([]interface{})
+	bArr, bIsArr := b.([]interface{})
+	// compare arr
+	if aIsArr || bIsArr {
+		if !aIsArr || !bIsArr || len(aArr) != len(bArr) {
+			return false
+		}
+		for i := range aArr {
+			if !compareValue(aArr[i], bArr[i], floatPrecision) {
+				return false
+			}
+		}
+		return true
+	}
+	// compare int, float
+	if af, aok := toFloat(a); aok {
+		if bf, bok := toFloat(b); bok {
+			if floatPrecision != nil {
+				return math.Abs(af-bf) <= math.Pow(10, -float64(*floatPrecision))
+			}
+			return af == bf
+		}
+		return false
+	}
+	// compare string
+	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
+}
+
+func toFloat(v interface{}) (float64, bool) {
+	switch n := v.(type) {
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case float32:
+		return float64(n), true
+	case float64:
+		return n, true
+	}
+	return 0, false
 }

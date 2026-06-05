@@ -170,14 +170,44 @@ func (r *CodeRunner) applyExecOptions() {
 }
 
 // runOnce feeds stdinContent to the program and captures fd3 as the actual output.
+// stdinContent may span multiple lines (one per input field); it is delivered via
+// a here-string using bash ANSI-C ($'...') quoting so embedded newlines survive —
+// a plain double-quoted here-string would pass a literal "\n" instead of a newline.
 func (r *CodeRunner) runOnce(ctx context.Context, stdinContent string) (*isolate.Result, error) {
 	r.applyExecOptions()
-	cmd := fmt.Sprintf("%s <<< %q 3>%q", r.submission.Language.RunCmd, stdinContent, r.actualOutputFileName)
+	cmd := fmt.Sprintf("%s <<< %s 3>%q", r.submission.Language.RunCmd, bashAnsiCQuote(stdinContent), r.actualOutputFileName)
 	result, err := r.exec.Run(ctx, "/bin/bash", "-c", cmd)
 	if err != nil {
 		return nil, fmt.Errorf("run command failed: %w", err)
 	}
 	return result, nil
+}
+
+// bashAnsiCQuote renders s as a bash ANSI-C quoted string ($'...'). Only the
+// characters that are special inside $'...' are escaped (backslash, single
+// quote, and the whitespace controls), so arbitrary multi-line stdin is passed
+// through faithfully.
+func bashAnsiCQuote(s string) string {
+	var b strings.Builder
+	b.WriteString("$'")
+	for _, c := range s {
+		switch c {
+		case '\\':
+			b.WriteString(`\\`)
+		case '\'':
+			b.WriteString(`\'`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			b.WriteRune(c)
+		}
+	}
+	b.WriteByte('\'')
+	return b.String()
 }
 
 // applyMeta updates resource-usage metrics (time, memory, exit code) from the result.
@@ -215,23 +245,32 @@ func resultSucceeded(result *isolate.Result) bool {
 	return result.ExitCode == 0 && result.Stderr == ""
 }
 
-// executeRun runs every test case line from the user-provided input without early exit.
-// Each line of input is treated as one test case; outputs are stored newline-separated
-// in ActualOutput so the caller can see all results at once.
+// executeRun runs every test case from the user-provided input without early exit.
 func (r *CodeRunner) executeRun(ctx context.Context) error {
-	inputLines := splitLines(*r.userInput)
-	expectedLines := splitLines(*r.userExpectedOutput)
-	if len(inputLines) != len(expectedLines) {
-		return fmt.Errorf("expected %d lines of input, got %d", len(expectedLines), len(inputLines))
+	prob := &r.submission.Problem
+	inParamLen, outParamLen := ioLineCounts(prob)
+
+	inputCases, err := groupTestCases(splitLines(*r.userInput), inParamLen)
+	if err != nil {
+		return fmt.Errorf("user input: %w", err)
+	}
+	expectedCases, err := groupTestCases(splitLines(*r.userExpectedOutput), outParamLen)
+	if err != nil {
+		return fmt.Errorf("user expected output: %w", err)
+	}
+	if len(inputCases) != len(expectedCases) {
+		return fmt.Errorf("expected %d test cases, got %d", len(expectedCases), len(inputCases))
 	}
 
+	outputFields := outputIOFields(prob)
+
 	sub := &r.submission.Submission
-	actualOutputs := make([]string, 0, len(inputLines))
-	userOutputs := make([]string, 0, len(inputLines))
+	actualOutputs := make([]string, 0, len(inputCases))
+	userOutputs := make([]string, 0, len(inputCases))
 	verdict := StatusAccepted
 
-	for i, line := range inputLines {
-		result, err := r.runOnce(ctx, line)
+	for i, stdin := range inputCases {
+		result, err := r.runOnce(ctx, stdin)
 		if err != nil {
 			return err
 		}
@@ -250,7 +289,8 @@ func (r *CodeRunner) executeRun(ctx context.Context) error {
 		}
 		if !resultSucceeded(result) {
 			verdict = ClassifyFromMeta(result.Meta)
-		} else if i < len(expectedLines) && actual != strings.TrimSpace(expectedLines[i]) {
+		}
+		if !CompareOutput(outputFields, expectedCases[i], actual, prob.FloatPrecision) {
 			verdict = StatusWrongAnswer
 		}
 	}
@@ -261,9 +301,8 @@ func (r *CodeRunner) executeRun(ctx context.Context) error {
 	return nil
 }
 
-// executeSubmit reads the problem's single input file and single expected-output file,
-// where each line is one test case. Compiles once, then runs each line sequentially.
-// Stops at the first failure and stores only that test case's input/actual/expected.
+// executeSubmit reads the problem's input file and expected-output file and
+// runs every test case.
 func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 	prob := &r.submission.Problem
 
@@ -276,16 +315,24 @@ func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 		return fmt.Errorf("failed to read expected output file %q: %w", prob.ExpectedOutputFile, err)
 	}
 
-	inputLines := splitLines(string(inputData))
-	expectedLines := splitLines(string(expectedData))
-
-	if len(inputLines) != len(expectedLines) {
-		return fmt.Errorf("line count mismatch: %d input lines vs %d expected output lines", len(inputLines), len(expectedLines))
+	inN, outN := ioLineCounts(prob)
+	inputCases, err := groupTestCases(splitLines(string(inputData)), inN)
+	if err != nil {
+		return fmt.Errorf("input file %q: %w", prob.InputFile, err)
+	}
+	expectedCases, err := groupTestCases(splitLines(string(expectedData)), outN)
+	if err != nil {
+		return fmt.Errorf("expected output file %q: %w", prob.ExpectedOutputFile, err)
+	}
+	if len(inputCases) != len(expectedCases) {
+		return fmt.Errorf("test case count mismatch: %d input vs %d expected", len(inputCases), len(expectedCases))
 	}
 
+	outputFields := outputIOFields(prob)
+
 	sub := &r.submission.Submission
-	for i, inputLine := range inputLines {
-		result, runErr := r.runOnce(ctx, inputLine)
+	for i, stdin := range inputCases {
+		result, runErr := r.runOnce(ctx, stdin)
 		if runErr != nil {
 			return runErr
 		}
@@ -295,22 +342,21 @@ func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		actual = strings.TrimSpace(actual)
-		expected := strings.TrimSpace(expectedLines[i])
+		expected := strings.TrimSpace(expectedCases[i])
 		userOutput := strings.TrimSpace(result.Stdout)
 
 		if !resultSucceeded(result) {
 			sub.Status = ClassifyFromMeta(result.Meta)
-			sub.ErrTestCaseInput = inputLine
+			sub.ErrTestCaseInput = stdin
 			sub.ErrTestCaseOutput = expected
 			sub.ActualOutput = actual
 			sub.UserOutput = userOutput
 			sub.Stderr = fmt.Sprintf("test case %d: %s", i+1, result.Stderr)
 			return nil
 		}
-		if actual != expected {
+		if !CompareOutput(outputFields, expected, actual, prob.FloatPrecision) {
 			sub.Status = StatusWrongAnswer
-			sub.ErrTestCaseInput = inputLine
+			sub.ErrTestCaseInput = stdin
 			sub.ErrTestCaseOutput = expected
 			sub.ActualOutput = actual
 			sub.UserOutput = userOutput
@@ -321,6 +367,17 @@ func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 
 	sub.Status = StatusAccepted
 	return nil
+}
+
+// outputIOFields returns the problem's output IO fields.
+func outputIOFields(prob *Problem) []ProblemIOField {
+	var fields []ProblemIOField
+	for _, f := range prob.IOSchema {
+		if f.Kind == IOKindOutput {
+			fields = append(fields, f)
+		}
+	}
+	return fields
 }
 
 // Execute runs the full lifecycle: init → compile (once) → execute all test cases → cleanup.
@@ -356,13 +413,52 @@ func (r *CodeRunner) Execute(ctx context.Context) error {
 	return r.executeSubmit(ctx)
 }
 
-// splitLines splits s on newlines and drops trailing empty lines.
 func splitLines(s string) []string {
 	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	// remove empty spaces after splitting. E.g: ["h", "e", "", ""] -> ["h", "e"]
 	for len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
 	}
 	return lines
+}
+
+// ioLineCounts reports how many lines make up one test case's input and one
+// test case's expected output, derived from the problem's IO schema (each field
+// occupies one line). Falls back to 1/1 when no schema is declared, preserving
+// the legacy one-line-per-test-case behavior.
+func ioLineCounts(prob *Problem) (in, out int) {
+	for _, f := range prob.IOSchema {
+		if f.Kind == IOKindOutput {
+			out++
+		} else {
+			in++
+		}
+	}
+	if in == 0 {
+		in = 1
+	}
+	if out == 0 {
+		out = 1
+	}
+	return in, out
+}
+
+// groupTestCases joins every `size` consecutive lines into one test case blob
+// (the multi-line stdin/expected text for a single case). Returns an error if
+// the line total is not an exact multiple of size, which signals a malformed
+// fixture rather than a user error.
+func groupTestCases(lines []string, size int) ([]string, error) {
+	if size <= 1 {
+		return lines, nil
+	}
+	if len(lines)%size != 0 {
+		return nil, fmt.Errorf("expected line count to be a multiple of %d, got %d", size, len(lines))
+	}
+	cases := make([]string, 0, len(lines)/size)
+	for i := 0; i < len(lines); i += size {
+		cases = append(cases, strings.Join(lines[i:i+size], "\n"))
+	}
+	return cases, nil
 }
 
 func (r *CodeRunner) getActualOutput() (string, error) {
@@ -370,5 +466,5 @@ func (r *CodeRunner) getActualOutput() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(output), nil
+	return strings.TrimSpace(string(output)), nil
 }

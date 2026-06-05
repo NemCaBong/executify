@@ -72,6 +72,13 @@ type problemLanguageSeed struct {
 	Template string `json:"template"`
 }
 
+type ioSchemaSeed struct {
+	Kind      string `json:"kind"`
+	LineIndex int    `json:"line_index"`
+	KeyName   string `json:"key_name"`
+	DataType  string `json:"data_type"`
+}
+
 type problemSeed struct {
 	Slug                     string                `json:"slug"`
 	Name                     string                `json:"name"`
@@ -88,10 +95,12 @@ type problemSeed struct {
 	WallTimeLimit            *float64              `json:"wall_time_limit"`
 	StackLimit               *int                  `json:"stack_limit"`
 	MaxProcessesAndOrThreads *int                  `json:"max_processes_and_or_threads"`
+	FloatPrecision           *int                  `json:"float_precision"`
 	InputFile                string                `json:"input_file"`
 	ExpectedOutputFile       string                `json:"expected_output_file"`
 	Tags                     []string              `json:"tags"`
 	Hints                    []string              `json:"hints"`
+	IOSchema                 []ioSchemaSeed        `json:"io_schema"`
 	Languages                []problemLanguageSeed `json:"languages"`
 }
 
@@ -136,16 +145,21 @@ func seedLanguages(db *gorm.DB, seeds []languageSeed) map[string]int {
 			RunCmd:     s.RunCmd,
 			SourceFile: s.SourceFile,
 		}
-		// Upsert by name: keep the same ID across runs while letting users
-		// tweak compile/run commands in JSON and re-seed to apply them.
-		if err := db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"compile_cmd", "run_cmd", "source_file"}),
-		}).Create(&row).Error; err != nil {
-			// MySQL doesn't have a unique index on name by default — fall back to lookup.
-			if err := db.Where("name = ?", s.Name).First(&row).Error; err != nil {
-				log.Fatalf("seed language %q: %v", s.Name, err)
-			}
+		// languages.name has no unique index, so clause.OnConflict can't dedup
+		// (it INSERTs a fresh row every run). Look up by name and create only
+		// when absent — keeping a stable ID across re-seeds — then refresh the
+		// mutable command columns from JSON.
+		if err := db.Where("name = ?", s.Name).
+			Attrs(row).
+			FirstOrCreate(&row).Error; err != nil {
+			log.Fatalf("seed language %q: %v", s.Name, err)
+		}
+		if err := db.Model(&row).Updates(map[string]any{
+			"compile_cmd": s.CompileCmd,
+			"run_cmd":     s.RunCmd,
+			"source_file": s.SourceFile,
+		}).Error; err != nil {
+			log.Fatalf("update language %q: %v", s.Name, err)
 		}
 		out[s.Name] = row.ID
 		log.Printf("language ready — id=%d name=%q version=%s", row.ID, s.Name, s.Version)
@@ -205,6 +219,7 @@ func seedProblems(db *gorm.DB, seeds []problemSeed, langIDs, tagIDs map[string]i
 			WallTimeLimit:            s.WallTimeLimit,
 			StackLimit:               s.StackLimit,
 			MaxProcessesAndOrThreads: s.MaxProcessesAndOrThreads,
+			FloatPrecision:           s.FloatPrecision,
 			InputFile:                inputPath,
 			ExpectedOutputFile:       expectedPath,
 			Hints:                    datatypes.NewJSONSlice(s.Hints),
@@ -217,11 +232,20 @@ func seedProblems(db *gorm.DB, seeds []problemSeed, langIDs, tagIDs map[string]i
 				"output_format", "sample_input", "sample_output",
 				"time_limit", "memory_limit",
 				"cpu_time_limit", "cpu_extra_time", "wall_time_limit",
-				"stack_limit", "max_processes_and_or_threads",
+				"stack_limit", "max_processes_and_or_threads", "float_precision",
 				"input_file", "expected_output_file", "hints",
 			}),
 		}).Create(&prob).Error; err != nil {
 			log.Fatalf("upsert problem %q: %v", s.Slug, err)
+		}
+
+		// MySQL's ON DUPLICATE KEY UPDATE leaves prob.ID at 0 on the update
+		// path, so re-fetch the real problem_id; the child rows (tags,
+		// languages, io_schema) below must reference it, not 0.
+		if prob.ID == 0 {
+			if err := db.Where("slug = ?", slug).First(&prob).Error; err != nil {
+				log.Fatalf("load problem id for %q: %v", s.Slug, err)
+			}
 		}
 
 		// Refresh tag associations: clear then re-attach so renamed/removed
@@ -263,7 +287,26 @@ func seedProblems(db *gorm.DB, seeds []problemSeed, langIDs, tagIDs map[string]i
 			}
 		}
 
-		log.Printf("problem ready — id=%d slug=%q languages=%d", prob.ID, s.Slug, len(s.Languages))
+		// Refresh the IO schema: drop the old rows then rewrite from JSON, so
+		// the runtime knows how many lines each test case spans and how to type
+		// each field (see domain.CompareOutput / code_runner test-case chunking).
+		if err := db.Exec("DELETE FROM problem_io_schema WHERE problem_id = ?", prob.ID).Error; err != nil {
+			log.Fatalf("clear problem_io_schema for %q: %v", s.Slug, err)
+		}
+		for _, f := range s.IOSchema {
+			row := entity.ProblemIOSchema{
+				ProblemID: prob.ID,
+				Kind:      f.Kind,
+				LineIndex: f.LineIndex,
+				KeyName:   f.KeyName,
+				DataType:  f.DataType,
+			}
+			if err := db.Create(&row).Error; err != nil {
+				log.Fatalf("insert problem_io_schema %q/%s[%d]: %v", s.Slug, f.Kind, f.LineIndex, err)
+			}
+		}
+
+		log.Printf("problem ready — id=%d slug=%q languages=%d io_fields=%d", prob.ID, s.Slug, len(s.Languages), len(s.IOSchema))
 	}
 }
 

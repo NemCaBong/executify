@@ -4,10 +4,10 @@
     "name": "Two Sum",
     "difficulty": "easy",
     "is_public": true,
-    "description": "Given an array of integers and a target, return the 0-based indices `(i, j)` (with `i < j`) of two distinct elements whose sum equals the target.\n\nEach test case is one line on stdin in the form `target a_1 a_2 ... a_n`, where `target` is the desired sum and `a_1..a_n` is the array. The wrapper parses the line into a single integer array (`target` followed by the array elements) and calls `solve(nums)` with that array; your job is only to extract `target = nums[0]` and search inside `nums[1:]`. The judge runs each test case independently — your function handles one line at a time.\n\nReturn an array `[i, j]`; the wrapper serializes it as `\"i j\"`. Every test case has exactly one valid answer.",
-    "output_format": "Two 0-based indices `i j` (separated by one space) into the array part of the input such that `array[i] + array[j] == target`, with `i < j`.",
-    "sample_input": "9 2 7 11 15",
-    "sample_output": "0 1",
+    "description": "Given an integer array `nums` and an integer `target`, return the 0-based indices `[i, j]` (with `i < j`) of two distinct elements whose sum equals the target.\n\nEach test case is two lines on stdin: line 1 is the array `nums` as a JSON array (e.g. `[2,7,11,15]`), and line 2 is the integer `target`. The wrapper parses both lines and calls `solve(nums, target)`. The judge runs each test case independently — your function handles one test case at a time.\n\nReturn the index pair as an array `[i, j]`; the wrapper serializes it as a JSON array (e.g. `[0,1]`). Every test case has exactly one valid answer.",
+    "output_format": "An array `[i, j]` of two 0-based indices into `nums` (with `i < j`) such that `nums[i] + nums[j] == target`, serialized as a JSON array, e.g. `[0,1]`.",
+    "sample_input": "[2,7,11,15]\n9",
+    "sample_output": "[0,1]",
     "time_limit": 2,
     "memory_limit": 256,
     "cpu_time_limit": null,
@@ -15,29 +15,35 @@
     "wall_time_limit": null,
     "stack_limit": null,
     "max_processes_and_or_threads": null,
+    "float_precision": null,
     "input_file": "input.txt",
     "expected_output_file": "expected_output.txt",
     "tags": ["array", "hash-table", "easy"],
     "hints": [
-      "Use a hash map: as you scan `nums[1:]`, check whether `target - x` was seen earlier.",
-      "Indices are 0-based into the array (i.e. into `nums[1:]`), and the smaller index comes first.",
+      "Use a hash map: as you scan `nums`, check whether `target - x` was seen earlier.",
+      "Indices are 0-based into `nums`, and the smaller index comes first.",
       "Values can be negative and up to ~1e9; prefer 64-bit integers in C++/Go."
+    ],
+    "io_schema": [
+      { "kind": "input",  "line_index": 0, "key_name": "nums",   "data_type": "int[]" },
+      { "kind": "input",  "line_index": 1, "key_name": "target", "data_type": "int" },
+      { "kind": "output", "line_index": 0, "key_name": "result", "data_type": "int[]" }
     ],
     "languages": [
       {
         "language": "Python 3.12",
-        "wrapper": "from __future__ import annotations\nimport os\nimport sys\n\n# bash redirects the answer file onto fd 3 via `3>file`. Move it to a private\n# fd and close fd 3 itself so user code can't accidentally write or close it.\n# After solve() returns, the wrapper writes the serialized result through the\n# private fd.\n_answer_fd = os.dup(3)\nos.close(3)\n\n{{.}}\n\ndef _serialize(result):\n    if isinstance(result, (list, tuple)):\n        return \" \".join(str(x) for x in result)\n    return str(result)\n\nif __name__ == \"__main__\":\n    line = sys.stdin.readline().rstrip(\"\\n\")\n    nums = [int(x) for x in line.split()]\n    result = solve(nums)\n    os.write(_answer_fd, _serialize(result).encode())\n    os.close(_answer_fd)\n",
-        "template": "def solve(nums: list[int]) -> list[int]:\n    # nums[0] is the target. nums[1:] is the array to search.\n    # Return [i, j] (i < j): 0-based indices into nums[1:] such that\n    # nums[1:][i] + nums[1:][j] == target.\n    target = nums[0]\n    arr = nums[1:]\n    seen = {}\n    for i, x in enumerate(arr):\n        if target - x in seen:\n            return [seen[target - x], i]\n        seen[x] = i\n    return []\n"
+        "wrapper": "from __future__ import annotations\nimport json\nimport os\nimport sys\n\n# bash redirects the answer file onto fd 3 via `3>file`. Move it to a private\n# fd and close fd 3 itself so user code can't accidentally write or close it.\n# stdin carries this test case's input lines, one per io_schema input field:\n# line 0 = nums (int[]), line 1 = target (int). After solve() returns, the\n# wrapper writes the JSON-serialized result through the private fd.\n_answer_fd = os.dup(3)\nos.close(3)\n\n{{.}}\n\nif __name__ == \"__main__\":\n    lines = sys.stdin.read().splitlines()\n    nums = json.loads(lines[0])\n    target = int(lines[1])\n    result = solve(nums, target)\n    os.write(_answer_fd, json.dumps(result, separators=(\",\", \":\")).encode())\n    os.close(_answer_fd)\n",
+        "template": "def solve(nums: list[int], target: int) -> list[int]:\n    # Return the 0-based indices [i, j] (i < j) of the two elements of nums\n    # whose sum equals target. Exactly one valid answer exists.\n    seen = {}\n    for i, x in enumerate(nums):\n        if target - x in seen:\n            return [seen[target - x], i]\n        seen[x] = i\n    return []\n"
       },
       {
         "language": "C++17 (g++ 13)",
-        "wrapper": "#include <bits/stdc++.h>\n#include <unistd.h>\nusing namespace std;\n\n{{.}}\n\nint main() {\n    // Move bash-supplied fd 3 to a private slot and close fd 3 so user code\n    // can't touch it. The dup is what the wrapper uses to deliver the answer.\n    int _answer_fd = dup(3);\n    close(3);\n\n    string line;\n    if (!getline(cin, line)) line = \"\";\n\n    stringstream ss(line);\n    vector<long long> nums;\n    long long x;\n    while (ss >> x) nums.push_back(x);\n\n    vector<int> result = solve(nums);\n\n    string payload;\n    for (size_t i = 0; i < result.size(); ++i) {\n        if (i) payload += ' ';\n        payload += to_string(result[i]);\n    }\n    write(_answer_fd, payload.c_str(), payload.size());\n    close(_answer_fd);\n    return 0;\n}\n",
-        "template": "// nums[0] is the target; nums[1..] is the array. Return the 0-based indices\n// (i, j) with i < j of two distinct elements in nums[1..] whose sum equals\n// the target.\nvector<int> solve(vector<long long> nums) {\n    long long target = nums[0];\n    int n = (int)nums.size() - 1;\n    unordered_map<long long, int> seen;\n    for (int i = 0; i < n; ++i) {\n        long long x = nums[1 + i];\n        auto it = seen.find(target - x);\n        if (it != seen.end()) return {it->second, i};\n        seen[x] = i;\n    }\n    return {};\n}\n"
+        "wrapper": "#include <bits/stdc++.h>\n#include <unistd.h>\nusing namespace std;\n\n{{.}}\n\n// Parse a JSON 1D integer array line (\"[2,7,11,15]\") by blanking the brackets\n// and commas, then reading the integers with a stringstream.\nstatic vector<long long> parseIntArray(const string& line) {\n    string s = line;\n    for (char& c : s) {\n        if (c == '[' || c == ']' || c == ',') c = ' ';\n    }\n    stringstream ss(s);\n    vector<long long> v;\n    long long x;\n    while (ss >> x) v.push_back(x);\n    return v;\n}\n\nint main() {\n    // Move bash-supplied fd 3 to a private slot and close fd 3 so user code\n    // can't touch it. The dup is what the wrapper uses to deliver the answer.\n    int _answer_fd = dup(3);\n    close(3);\n\n    // Two stdin lines for this test case: line 0 = nums, line 1 = target.\n    string numsLine, targetLine;\n    getline(cin, numsLine);\n    getline(cin, targetLine);\n\n    vector<long long> nums = parseIntArray(numsLine);\n    long long target = stoll(targetLine);\n\n    vector<int> result = solve(nums, target);\n\n    string payload = \"[\";\n    for (size_t i = 0; i < result.size(); ++i) {\n        if (i) payload += ',';\n        payload += to_string(result[i]);\n    }\n    payload += ']';\n    write(_answer_fd, payload.c_str(), payload.size());\n    close(_answer_fd);\n    return 0;\n}\n",
+        "template": "// Return the 0-based indices (i, j) with i < j of the two elements of nums\n// whose sum equals target. Exactly one valid answer exists.\nvector<int> solve(vector<long long> nums, long long target) {\n    unordered_map<long long, int> seen;\n    for (int i = 0; i < (int)nums.size(); ++i) {\n        auto it = seen.find(target - nums[i]);\n        if (it != seen.end()) return {it->second, i};\n        seen[nums[i]] = i;\n    }\n    return {};\n}\n"
       },
       {
         "language": "Go 1.22",
-        "wrapper": "package main\n\nimport (\n\t\"bufio\"\n\t\"fmt\"\n\t\"os\"\n\t\"strconv\"\n\t\"strings\"\n\t\"syscall\"\n)\n\n{{.}}\n\nfunc main() {\n\t// Move bash-supplied fd 3 to a private fd and close fd 3 so user code\n\t// can't poke at it. The duplicate is used to deliver the answer below.\n\tdupFd, _ := syscall.Dup(3)\n\t_ = syscall.Close(3)\n\tanswer := os.NewFile(uintptr(dupFd), \"answer\")\n\n\treader := bufio.NewReader(os.Stdin)\n\tline, _ := reader.ReadString('\\n')\n\tline = strings.TrimRight(line, \"\\n\")\n\n\tfields := strings.Fields(line)\n\tnums := make([]int64, len(fields))\n\tfor i, f := range fields {\n\t\tv, _ := strconv.ParseInt(f, 10, 64)\n\t\tnums[i] = v\n\t}\n\n\tresult := solve(nums)\n\n\tparts := make([]string, len(result))\n\tfor i, x := range result {\n\t\tparts[i] = fmt.Sprint(x)\n\t}\n\tpayload := strings.Join(parts, \" \")\n\n\t_, _ = answer.WriteString(payload)\n\t_ = answer.Close()\n}\n",
-        "template": "// nums[0] is the target; nums[1:] is the array. Return the 0-based indices\n// (i, j) with i < j of two distinct elements in nums[1:] whose sum equals\n// the target.\nfunc solve(nums []int64) []int {\n\ttarget := nums[0]\n\tarr := nums[1:]\n\tseen := make(map[int64]int)\n\tfor i, x := range arr {\n\t\tif j, ok := seen[target-x]; ok {\n\t\t\treturn []int{j, i}\n\t\t}\n\t\tseen[x] = i\n\t}\n\treturn nil\n}\n"
+        "wrapper": "package main\n\nimport (\n\t\"bufio\"\n\t\"encoding/json\"\n\t\"os\"\n\t\"strconv\"\n\t\"strings\"\n\t\"syscall\"\n)\n\n{{.}}\n\nfunc main() {\n\t// Move bash-supplied fd 3 to a private fd and close fd 3 so user code\n\t// can't poke at it. The duplicate is used to deliver the answer below.\n\tdupFd, _ := syscall.Dup(3)\n\t_ = syscall.Close(3)\n\tanswer := os.NewFile(uintptr(dupFd), \"answer\")\n\n\t// Two stdin lines for this test case: line 0 = nums, line 1 = target.\n\treader := bufio.NewReader(os.Stdin)\n\tnumsLine, _ := reader.ReadString('\\n')\n\ttargetLine, _ := reader.ReadString('\\n')\n\n\tvar nums []int64\n\t_ = json.Unmarshal([]byte(strings.TrimSpace(numsLine)), &nums)\n\ttarget, _ := strconv.ParseInt(strings.TrimSpace(targetLine), 10, 64)\n\n\tresult := solve(nums, target)\n\n\tpayload, _ := json.Marshal(result)\n\t_, _ = answer.Write(payload)\n\t_ = answer.Close()\n}\n",
+        "template": "// Return the 0-based indices (i, j) with i < j of the two elements of nums\n// whose sum equals target. Exactly one valid answer exists.\nfunc solve(nums []int64, target int64) []int {\n\tseen := make(map[int64]int)\n\tfor i, x := range nums {\n\t\tif j, ok := seen[target-x]; ok {\n\t\t\treturn []int{j, i}\n\t\t}\n\t\tseen[x] = i\n\t}\n\treturn nil\n}\n"
       }
     ]
   }

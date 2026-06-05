@@ -75,6 +75,7 @@ func (h *ProblemHandler) Upsert(c *gin.Context) {
 		WallTimeLimit:            req.WallTimeLimit,
 		StackLimit:               req.StackLimit,
 		MaxProcessesAndOrThreads: req.MaxProcessesAndOrThreads,
+		FloatPrecision:           req.FloatPrecision,
 		Hints:                    req.Hints,
 		Tags:                     tags,
 		IOSchema:                 ioSchema,
