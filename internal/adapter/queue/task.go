@@ -14,6 +14,9 @@ const (
 
 type SubmissionPayload struct {
 	SubmissionID int `json:"submission_id"`
+	// LogCommand, when true, makes the worker log every isolate command line
+	// for this submission. Toggled per request via the X-Enable-Log-Command header.
+	EnableCommandLog bool `json:"log_command,omitempty"`
 }
 
 func (p SubmissionPayload) Marshal() ([]byte, error) {

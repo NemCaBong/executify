@@ -13,17 +13,24 @@ import (
 	"github.com/NemCaBong/executify/internal/config"
 )
 
+// CommandLogger receives the fully-rendered isolate command line at each
+// lifecycle stage. Wired via WithCommandLogger;
+// left nil to disable command logging entirely.
+type CommandLogger func(stage, command string)
+
 type CodeRunner struct {
 	submission           *SubmissionWithDetails
 	userInput            *string // non-nil = run mode (user-provided input lines); nil = submit mode (uses problem dir)
 	userExpectedOutput   *string
 	exec                 *isolate.Executor
+	builder              *isolate.Builder
 	codeRunnerCfg        config.CodeRunnerConfig
 	stdoutFileName       string
 	stderrFileName       string
 	actualOutputFileName string
 	metaFileName         string
 	notifyStatus         StatusNotifier
+	logCmd               CommandLogger
 }
 
 func NewCodeRunner(
@@ -54,6 +61,23 @@ func (r *CodeRunner) WithStatusNotifier(fn StatusNotifier) *CodeRunner {
 	return r
 }
 
+// WithCommandLogger wires a callback that receives the rendered isolate command
+// at each lifecycle stage (init → compile → run → cleanup). Optional — when
+// unset, no command logging happens. Enabled per-request via the
+// X-Enable-Log-Command header (see the submission handler / worker).
+func (r *CodeRunner) WithCommandLogger(fn CommandLogger) *CodeRunner {
+	r.logCmd = fn
+	return r
+}
+
+// logCommand renders nothing and fires the command logger only when one is
+// configured, so the BuildXxx() string is not even built in the common case.
+func (r *CodeRunner) logCommand(stage string, cmd *isolate.Command) {
+	if r.logCmd != nil && cmd != nil {
+		r.logCmd(stage, cmd.String())
+	}
+}
+
 // emitStatus updates the in-memory submission status and fires the notifier
 // (if configured). Notifier errors are intentionally swallowed: persistence
 // failure on an intermediate state must not abort the run.
@@ -66,7 +90,10 @@ func (r *CodeRunner) emitStatus(ctx context.Context, s SubmissionStatus) {
 
 func (r *CodeRunner) init(ctx context.Context) error {
 	boxId := r.submission.ID % r.codeRunnerCfg.BoxModulus
-	r.exec = isolate.New().
+	// Keep the builder: Exec() shares this exact pointer with the executor and
+	// ApplyOptions mutates it, so builder.BuildInit/BuildRun/BuildCleanup render
+	// the same command line the executor actually runs.
+	r.builder = isolate.New().
 		BoxID(boxId).
 		FullEnv().
 		DirSimple("/usr").
@@ -77,8 +104,10 @@ func (r *CodeRunner) init(ctx context.Context) error {
 		Meta(r.metaFileName).
 		Stdout(r.stdoutFileName).
 		Stderr(r.stderrFileName).
-		InheritFDs(). // to route user res to another fd
-		Exec()
+		InheritFDs() // to route user res to another fd
+	r.exec = r.builder.Exec()
+
+	r.logCommand("init", r.builder.BuildInit())
 	if _, err := r.exec.Init(ctx); err != nil {
 		r.exec.Cleanup(ctx)
 		return err
@@ -126,6 +155,7 @@ func (r *CodeRunner) compile(ctx context.Context) (bool, error) {
 		isolate.WithProcesses(10),
 	)
 
+	r.logCommand("compile", r.builder.BuildRun("/bin/bash", "-c", *r.submission.Language.CompileCmd))
 	result, err := r.exec.Run(ctx, "/bin/bash", "-c", *r.submission.Language.CompileCmd)
 	if err != nil {
 		return false, fmt.Errorf("compile command failed: %w", err)
@@ -177,6 +207,7 @@ func (r *CodeRunner) applyExecOptions() {
 func (r *CodeRunner) runOnce(ctx context.Context, stdinContent string) (*isolate.Result, error) {
 	r.applyExecOptions()
 	cmd := fmt.Sprintf("%s <<< %s 3>%q", r.submission.Language.RunCmd, bashAnsiCQuote(stdinContent), r.actualOutputFileName)
+	r.logCommand("run", r.builder.BuildRun("/bin/bash", "-c", cmd))
 	result, err := r.exec.Run(ctx, "/bin/bash", "-c", cmd)
 	if err != nil {
 		return nil, fmt.Errorf("run command failed: %w", err)
@@ -392,7 +423,10 @@ func (r *CodeRunner) Execute(ctx context.Context) error {
 	if err := r.init(ctx); err != nil {
 		return err
 	}
-	defer r.exec.Cleanup(ctx)
+	defer func() {
+		r.logCommand("cleanup", r.builder.BuildCleanup())
+		r.exec.Cleanup(ctx)
+	}()
 
 	if r.submission.Language.CompileCmd != nil {
 		r.emitStatus(ctx, StatusCompiling)

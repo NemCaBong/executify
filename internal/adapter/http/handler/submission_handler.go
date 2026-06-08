@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -17,10 +18,23 @@ import (
 	"github.com/NemCaBong/executify/pkg/httperr"
 )
 
+const HeaderEnableLogCommand = "X-Enable-Log-Command"
+
 type SubmissionHandler struct {
 	cfg          *config.Config
 	submissionUC *submission.Usecase
 	enqueuer     appqueue.SubmissionEnqueuer
+}
+
+// enableCommandLog reports whether the request opted into isolate command
+// logging via the X-Enable-Log-Command header.
+func enableCommandLog(c *gin.Context) bool {
+	switch strings.ToLower(strings.TrimSpace(c.GetHeader(HeaderEnableLogCommand))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func NewSubmissionHandler(cfg *config.Config, submissionUC *submission.Usecase, enqueuer appqueue.SubmissionEnqueuer) *SubmissionHandler {
@@ -56,7 +70,7 @@ func (h *SubmissionHandler) Submit(c *gin.Context) {
 
 	l = l.With(zap.Int("submission_id", id))
 
-	if err = h.enqueuer.EnqueueSubmit(c.Request.Context(), id); err != nil {
+	if err = h.enqueuer.EnqueueSubmit(c.Request.Context(), id, enableCommandLog(c)); err != nil {
 		l.Error("failed to enqueue submission", zap.Error(err))
 		httperr.Internal(c)
 		return
@@ -93,7 +107,7 @@ func (h *SubmissionHandler) Run(c *gin.Context) {
 
 	l = l.With(zap.Int("submission_id", id))
 
-	if err = h.enqueuer.EnqueueRun(c.Request.Context(), id); err != nil {
+	if err = h.enqueuer.EnqueueRun(c.Request.Context(), id, enableCommandLog(c)); err != nil {
 		l.Error("failed to enqueue run submission", zap.Error(err))
 		httperr.Internal(c)
 		return

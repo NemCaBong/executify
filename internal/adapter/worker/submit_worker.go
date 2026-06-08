@@ -57,6 +57,11 @@ func (h *SubmitHandler) Handle(ctx context.Context, task *asynq.Task) error {
 			submissionDetail.Submission.Status = status
 			return h.submissionUC.Update(notifyCtx, &submissionDetail.Submission)
 		})
+	if payload.EnableCommandLog {
+		runner.WithCommandLogger(func(stage, command string) {
+			l.Info("isolate command", zap.String("stage", stage), zap.String("command", command))
+		})
+	}
 	if err = runner.Execute(ctx); err != nil {
 		return fmt.Errorf("execute submission: %w", err)
 	}

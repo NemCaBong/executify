@@ -25,16 +25,16 @@ func NewAsynqProducer(client *asynq.Client) appqueue.SubmissionEnqueuer {
 	return &asynqProducer{client: client}
 }
 
-func (p *asynqProducer) EnqueueSubmit(ctx context.Context, submissionID int) error {
-	return p.enqueue(ctx, TypeSubmissionSubmit, QueueSubmit, submissionID)
+func (p *asynqProducer) EnqueueSubmit(ctx context.Context, submissionID int, enableCommandLog bool) error {
+	return p.enqueue(ctx, TypeSubmissionSubmit, QueueSubmit, submissionID, enableCommandLog)
 }
 
-func (p *asynqProducer) EnqueueRun(ctx context.Context, submissionID int) error {
-	return p.enqueue(ctx, TypeSubmissionRun, QueueRun, submissionID)
+func (p *asynqProducer) EnqueueRun(ctx context.Context, submissionID int, enableCommandLog bool) error {
+	return p.enqueue(ctx, TypeSubmissionRun, QueueRun, submissionID, enableCommandLog)
 }
 
-func (p *asynqProducer) enqueue(ctx context.Context, taskType, queueName string, submissionID int) error {
-	payload, err := SubmissionPayload{SubmissionID: submissionID}.Marshal()
+func (p *asynqProducer) enqueue(ctx context.Context, taskType, queueName string, submissionID int, enableCommandLog bool) error {
+	payload, err := SubmissionPayload{SubmissionID: submissionID, EnableCommandLog: enableCommandLog}.Marshal()
 	if err != nil {
 		return fmt.Errorf("marshal submission payload: %w", err)
 	}
