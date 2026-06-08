@@ -75,3 +75,35 @@ func (u *Usecase) GetDetails(ctx context.Context, slug string, languageQuery str
 		SupportedLanguages: langs,
 	}, nil
 }
+
+// GetSnippet returns the template code and language metadata for a single
+// (problem, language) pair, looked up by the problem slug and language slug.
+// This is the lightweight endpoint used when the user switches language on a
+// problem they already have loaded.
+func (u *Usecase) GetSnippet(ctx context.Context, problemSlug, languageSlug string) (*domain.ProblemLanguageSnippet, error) {
+	prob, err := u.repo.GetBySlug(ctx, problemSlug)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProblemNotFound
+		}
+		return nil, err
+	}
+
+	lang, err := u.repo.FindLanguageBySlug(ctx, strings.ToLower(strings.TrimSpace(languageSlug)))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrLanguageNotFound
+		}
+		return nil, err
+	}
+
+	snippet, err := u.repo.GetProblemLanguageSnippet(ctx, prob.ID, lang.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrLanguageNotSupported
+		}
+		return nil, err
+	}
+
+	return snippet, nil
+}

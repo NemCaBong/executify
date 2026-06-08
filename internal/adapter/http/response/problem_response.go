@@ -15,12 +15,23 @@ type ProblemTagResponse struct {
 type ProblemLanguageRefResponse struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
+	Slug string `json:"slug"`
 }
 
 type ProblemSnippetResponse struct {
 	Language     ProblemLanguageRefResponse `json:"language"`
 	TemplateCode string                     `json:"template_code"`
-	WrapperCode  string                     `json:"wrapper_code"`
+}
+
+func NewProblemSnippetResponse(s *domain.ProblemLanguageSnippet) ProblemSnippetResponse {
+	return ProblemSnippetResponse{
+		Language: ProblemLanguageRefResponse{
+			ID:   s.Language.ID,
+			Name: s.Language.Name,
+			Slug: s.Language.Slug,
+		},
+		TemplateCode: s.TemplateCode,
+	}
 }
 
 // ProblemIOFieldResponse is one named value the FE renders as a key/value
@@ -88,7 +99,7 @@ func NewProblemDetailsResponse(d *domain.ProblemDetails) *ProblemDetailsResponse
 
 	langs := make([]ProblemLanguageRefResponse, len(d.SupportedLanguages))
 	for i, l := range d.SupportedLanguages {
-		langs[i] = ProblemLanguageRefResponse{ID: l.ID, Name: l.Name}
+		langs[i] = ProblemLanguageRefResponse{ID: l.ID, Name: l.Name, Slug: l.Slug}
 	}
 
 	var inputFields, outputFields []domain.ProblemIOField
@@ -104,27 +115,20 @@ func NewProblemDetailsResponse(d *domain.ProblemDetails) *ProblemDetailsResponse
 	outputValues := domain.ParseSampleValues(outputFields, p.SampleOutput)
 
 	return &ProblemDetailsResponse{
-		ID:              p.ID,
-		Name:            p.Name,
-		Slug:            p.Slug,
-		Difficulty:      difficulty,
-		IsPublic:        p.IsPublic,
-		AcceptedCount:   p.AcceptedCount,
-		SubmissionCount: p.SubmissionCount,
-		Description:     p.Description,
-		OutputFormat:    p.OutputFormat,
-		Hints:           hints,
-		Tags:            tags,
-		CreatedAt:       p.CreatedAt,
-		UpdatedAt:       p.UpdatedAt,
-		Snippet: ProblemSnippetResponse{
-			Language: ProblemLanguageRefResponse{
-				ID:   d.Snippet.Language.ID,
-				Name: d.Snippet.Language.Name,
-			},
-			TemplateCode: d.Snippet.TemplateCode,
-			WrapperCode:  d.Snippet.WrapperCode,
-		},
+		ID:                 p.ID,
+		Name:               p.Name,
+		Slug:               p.Slug,
+		Difficulty:         difficulty,
+		IsPublic:           p.IsPublic,
+		AcceptedCount:      p.AcceptedCount,
+		SubmissionCount:    p.SubmissionCount,
+		Description:        p.Description,
+		OutputFormat:       p.OutputFormat,
+		Hints:              hints,
+		Tags:               tags,
+		CreatedAt:          p.CreatedAt,
+		UpdatedAt:          p.UpdatedAt,
+		Snippet:            NewProblemSnippetResponse(d.Snippet),
 		SupportedLanguages: langs,
 		Inputs:             buildIOFields(inputFields, inputValues),
 		Outputs:            buildIOFields(outputFields, outputValues),

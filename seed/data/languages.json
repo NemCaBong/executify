@@ -1,6 +1,7 @@
 [
   {
     "name": "Python 3.12",
+    "slug": "python-3.12",
     "version": "CPython 3.12.x",
     "source_file": "main.py",
     "compile_cmd": null,
@@ -9,6 +10,7 @@
   },
   {
     "name": "C++17 (g++ 13)",
+    "slug": "c++17-(g++-13)",
     "version": "g++ 13.x, -std=c++17",
     "source_file": "main.cpp",
     "compile_cmd": "g++ -std=c++17 -O2 -pipe -o main main.cpp",
@@ -17,6 +19,7 @@
   },
   {
     "name": "Go 1.22",
+    "slug": "go-1.22",
     "version": "go1.22.x",
     "source_file": "main.go",
     "compile_cmd": "GOCACHE=/tmp/.gocache GOPATH=/tmp/.gopath go build -o main main.go",

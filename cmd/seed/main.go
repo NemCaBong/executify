@@ -47,6 +47,7 @@ var dataRoot string
 
 type languageSeed struct {
 	Name       string  `json:"name"`
+	Slug       string  `json:"slug"`
 	Version    string  `json:"version"`
 	SourceFile string  `json:"source_file"`
 	CompileCmd *string `json:"compile_cmd"`
@@ -141,6 +142,7 @@ func seedLanguages(db *gorm.DB, seeds []languageSeed) map[string]int {
 	for _, s := range seeds {
 		row := entity.Language{
 			Name:       s.Name,
+			Slug:       s.Slug,
 			CompileCmd: s.CompileCmd,
 			RunCmd:     s.RunCmd,
 			SourceFile: s.SourceFile,
@@ -155,6 +157,7 @@ func seedLanguages(db *gorm.DB, seeds []languageSeed) map[string]int {
 			log.Fatalf("seed language %q: %v", s.Name, err)
 		}
 		if err := db.Model(&row).Updates(map[string]any{
+			"slug":        s.Slug,
 			"compile_cmd": s.CompileCmd,
 			"run_cmd":     s.RunCmd,
 			"source_file": s.SourceFile,
@@ -162,7 +165,7 @@ func seedLanguages(db *gorm.DB, seeds []languageSeed) map[string]int {
 			log.Fatalf("update language %q: %v", s.Name, err)
 		}
 		out[s.Name] = row.ID
-		log.Printf("language ready — id=%d name=%q version=%s", row.ID, s.Name, s.Version)
+		log.Printf("language ready — id=%d name=%q slug=%q version=%s", row.ID, s.Name, s.Slug, s.Version)
 	}
 	return out
 }

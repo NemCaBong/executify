@@ -113,6 +113,7 @@ func setupRouter(app *api_http.App, jwtSecret []byte) *gin.Engine {
 		}
 
 		v1.GET("/problems/:slug", app.ProblemHandler.GetDetails)
+		v1.GET("/problems/:slug/languages/:lang", app.ProblemHandler.GetSnippet)
 
 		protected := v1.Group("", middleware.Auth(jwtSecret))
 		{

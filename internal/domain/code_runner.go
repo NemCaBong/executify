@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/NemCaBong/go-isolate"
@@ -40,7 +41,8 @@ func NewCodeRunner(
 		stdoutFileName:       hash + StdoutFileName,
 		stderrFileName:       hash + StderrFileName,
 		actualOutputFileName: hash + ActualOutputFileName,
-		metaFileName:         hash + MetaFileName,
+		// meta file need to have path
+		metaFileName: filepath.Join(os.TempDir(), hash+MetaFileName),
 	}
 }
 
@@ -87,7 +89,6 @@ func (r *CodeRunner) init(ctx context.Context) error {
 		r.stdoutFileName,
 		r.stderrFileName,
 		r.actualOutputFileName,
-		r.metaFileName,
 	} {
 		err := r.exec.WriteToSandbox(name, []byte(""), 0644)
 		if err != nil {

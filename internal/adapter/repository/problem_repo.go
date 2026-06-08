@@ -84,6 +84,7 @@ func (r *problemRepository) GetProblemLanguageSnippet(ctx context.Context, probl
 		WrapperCode  string  `gorm:"column:wrapper_code"`
 		LanguageID   int     `gorm:"column:language_id"`
 		Name         string  `gorm:"column:name"`
+		Slug         string  `gorm:"column:slug"`
 		CompileCmd   *string `gorm:"column:compile_cmd"`
 		RunCmd       string  `gorm:"column:run_cmd"`
 		SourceFile   string  `gorm:"column:source_file"`
@@ -91,7 +92,7 @@ func (r *problemRepository) GetProblemLanguageSnippet(ctx context.Context, probl
 	var row joined
 	err := r.db.WithContext(ctx).
 		Table("problem_languages AS pl").
-		Select("pl.template_code, pl.wrapper_code, l.id AS language_id, l.name, l.compile_cmd, l.run_cmd, l.source_file").
+		Select("pl.template_code, pl.wrapper_code, l.id AS language_id, l.name, l.slug, l.compile_cmd, l.run_cmd, l.source_file").
 		Joins("INNER JOIN languages l ON l.id = pl.language_id").
 		Where("pl.problem_id = ? AND pl.language_id = ?", problemID, languageID).
 		Take(&row).Error
@@ -104,6 +105,7 @@ func (r *problemRepository) GetProblemLanguageSnippet(ctx context.Context, probl
 		Language: domain.Language{
 			ID:         row.LanguageID,
 			Name:       row.Name,
+			Slug:       row.Slug,
 			CompileCmd: row.CompileCmd,
 			RunCmd:     row.RunCmd,
 			SourceFile: row.SourceFile,
@@ -115,7 +117,7 @@ func (r *problemRepository) ListProblemLanguages(ctx context.Context, problemID 
 	var rows []entity.Language
 	err := r.db.WithContext(ctx).
 		Table("languages AS l").
-		Select("l.id, l.name, l.compile_cmd, l.run_cmd, l.source_file").
+		Select("l.id, l.name, l.slug, l.compile_cmd, l.run_cmd, l.source_file").
 		Joins("INNER JOIN problem_languages pl ON pl.language_id = l.id").
 		Where("pl.problem_id = ?", problemID).
 		Order("l.id ASC").
@@ -135,6 +137,16 @@ func (r *problemRepository) FindLanguageByName(ctx context.Context, query string
 	if err := r.db.WithContext(ctx).
 		Where("LOWER(name) LIKE ?", "%"+query+"%").
 		Order("id ASC").
+		First(&lang).Error; err != nil {
+		return nil, err
+	}
+	return lang.ToDomain(), nil
+}
+
+func (r *problemRepository) FindLanguageBySlug(ctx context.Context, slug string) (*domain.Language, error) {
+	var lang entity.Language
+	if err := r.db.WithContext(ctx).
+		Where("slug = ?", slug).
 		First(&lang).Error; err != nil {
 		return nil, err
 	}

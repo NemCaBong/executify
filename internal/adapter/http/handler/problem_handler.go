@@ -119,3 +119,40 @@ func (h *ProblemHandler) GetDetails(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response.NewProblemDetailsResponse(details))
 }
+
+// GetSnippet returns the template code and language info for a single language
+// of a problem, looked up by problem slug and language slug. Used when the user
+// switches language without re-fetching the whole problem.
+func (h *ProblemHandler) GetSnippet(c *gin.Context) {
+	l := logger.FromContext(c.Request.Context())
+
+	slug := strings.TrimSpace(c.Param("slug"))
+	if slug == "" {
+		httperr.BadRequest(c, "problem slug is required")
+		return
+	}
+	langSlug := strings.TrimSpace(c.Param("lang"))
+	if langSlug == "" {
+		httperr.BadRequest(c, "language slug is required")
+		return
+	}
+
+	snippet, err := h.problemUC.GetSnippet(c.Request.Context(), slug, langSlug)
+	if err != nil {
+		switch {
+		case errors.Is(err, problem.ErrProblemNotFound):
+			httperr.NotFound(c, "problem not found")
+		case errors.Is(err, problem.ErrLanguageNotFound):
+			httperr.NotFound(c, "language not found")
+		case errors.Is(err, problem.ErrLanguageNotSupported):
+			httperr.BadRequest(c, "language not supported for this problem")
+		default:
+			l.Error("failed to load problem snippet",
+				zap.String("problem_slug", slug), zap.String("language_slug", langSlug), zap.Error(err))
+			httperr.Internal(c)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, response.NewProblemSnippetResponse(snippet))
+}

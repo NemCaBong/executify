@@ -24,4 +24,7 @@ type Repository interface {
 	// FindLanguageByName does a case-insensitive substring match against the
 	// language name and returns the first hit (by ID).
 	FindLanguageByName(ctx context.Context, query string) (*domain.Language, error)
+
+	// FindLanguageBySlug returns the language with an exact slug match.
+	FindLanguageBySlug(ctx context.Context, slug string) (*domain.Language, error)
 }
