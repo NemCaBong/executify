@@ -27,6 +27,17 @@ const (
 	StatusInternalError       SubmissionStatus = "INTERNAL_ERROR"
 )
 
+func (s SubmissionStatus) IsTerminal() bool {
+	switch s {
+	case StatusAccepted, StatusWrongAnswer, StatusTimeLimitExceeded,
+		StatusMemoryLimitExceeded, StatusRuntimeError, StatusCompilationError,
+		StatusInternalError:
+		return true
+	default:
+		return false
+	}
+}
+
 // StatusNotifier is invoked by CodeRunner at phase transitions so the worker
 // can persist intermediate states (COMPILING, RUNNING) without coupling the
 // domain layer to a repository. Returning a non-nil error is logged but does

@@ -138,5 +138,5 @@ func (h *SubmissionHandler) GetStatus(c *gin.Context) {
 	}
 
 	l.Info("submission status retrieved", zap.String("verdict", string(sub.Status)))
-	c.JSON(http.StatusOK, sub)
+	c.JSON(http.StatusOK, response.NewSubmissionStatusResponse(sub))
 }
