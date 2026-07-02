@@ -6,6 +6,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/NemCaBong/go-isolate"
@@ -28,6 +30,7 @@ type CodeRunner struct {
 	stdoutFileName       string
 	stderrFileName       string
 	actualOutputFileName string
+	stdinFileName        string
 	metaFileName         string
 	notifyStatus         StatusNotifier
 	logCmd               CommandLogger
@@ -48,6 +51,7 @@ func NewCodeRunner(
 		stdoutFileName:       hash + StdoutFileName,
 		stderrFileName:       hash + StderrFileName,
 		actualOutputFileName: hash + ActualOutputFileName,
+		stdinFileName:        hash + StdinFileName,
 		// meta file need to have path
 		metaFileName: filepath.Join(os.TempDir(), hash+MetaFileName),
 	}
@@ -200,46 +204,18 @@ func (r *CodeRunner) applyExecOptions() {
 	r.exec.ApplyOptions(opts...)
 }
 
-// runOnce feeds stdinContent to the program and captures fd3 as the actual output.
-// stdinContent may span multiple lines (one per input field); it is delivered via
-// a here-string using bash ANSI-C ($'...') quoting so embedded newlines survive —
-// a plain double-quoted here-string would pass a literal "\n" instead of a newline.
-func (r *CodeRunner) runOnce(ctx context.Context, stdinContent string) (*isolate.Result, error) {
+// runOnce feeds the sandbox-relative input file to the program and captures fd3
+// as the actual output. sandboxInputPath must already be written to the sandbox
+// before calling this function.
+func (r *CodeRunner) runOnce(ctx context.Context, sandboxInputPath string) (*isolate.Result, error) {
 	r.applyExecOptions()
-	cmd := fmt.Sprintf("%s <<< %s 3>%q", r.submission.Language.RunCmd, bashAnsiCQuote(stdinContent), r.actualOutputFileName)
+	cmd := fmt.Sprintf("%s < %q 3>%q", r.submission.Language.RunCmd, sandboxInputPath, r.actualOutputFileName)
 	r.logCommand("run", r.builder.BuildRun("/bin/bash", "-c", cmd))
 	result, err := r.exec.Run(ctx, "/bin/bash", "-c", cmd)
 	if err != nil {
 		return nil, fmt.Errorf("run command failed: %w", err)
 	}
 	return result, nil
-}
-
-// bashAnsiCQuote renders s as a bash ANSI-C quoted string ($'...'). Only the
-// characters that are special inside $'...' are escaped (backslash, single
-// quote, and the whitespace controls), so arbitrary multi-line stdin is passed
-// through faithfully.
-func bashAnsiCQuote(s string) string {
-	var b strings.Builder
-	b.WriteString("$'")
-	for _, c := range s {
-		switch c {
-		case '\\':
-			b.WriteString(`\\`)
-		case '\'':
-			b.WriteString(`\'`)
-		case '\n':
-			b.WriteString(`\n`)
-		case '\r':
-			b.WriteString(`\r`)
-		case '\t':
-			b.WriteString(`\t`)
-		default:
-			b.WriteRune(c)
-		}
-	}
-	b.WriteByte('\'')
-	return b.String()
 }
 
 // applyMeta updates resource-usage metrics (time, memory, exit code) from the result.
@@ -278,6 +254,7 @@ func resultSucceeded(result *isolate.Result) bool {
 }
 
 // executeRun runs every test case from the user-provided input without early exit.
+// Each test case is written to a dedicated sandbox file before execution.
 func (r *CodeRunner) executeRun(ctx context.Context) error {
 	prob := &r.submission.Problem
 	inParamLen, outParamLen := ioLineCounts(prob)
@@ -301,8 +278,11 @@ func (r *CodeRunner) executeRun(ctx context.Context) error {
 	userOutputs := make([]string, 0, len(inputCases))
 	verdict := StatusAccepted
 
-	for i, stdin := range inputCases {
-		result, err := r.runOnce(ctx, stdin)
+	for i, stdinContent := range inputCases {
+		if err := r.exec.WriteToSandbox(r.stdinFileName, []byte(stdinContent), 0644); err != nil {
+			return fmt.Errorf("write stdin to sandbox: %w", err)
+		}
+		result, err := r.runOnce(ctx, r.stdinFileName)
 		if err != nil {
 			return err
 		}
@@ -333,53 +313,56 @@ func (r *CodeRunner) executeRun(ctx context.Context) error {
 	return nil
 }
 
-// executeSubmit reads the problem's input file and expected-output file and
-// runs every test case.
+// executeSubmit reads individual input and expected-output files from the
+// problem's directories and runs every test case.
 func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 	prob := &r.submission.Problem
 
-	inputData, err := os.ReadFile(prob.InputFile)
+	inputFiles, err := readSortedTestCaseFiles(prob.InputDir)
 	if err != nil {
-		return fmt.Errorf("failed to read input file %q: %w", prob.InputFile, err)
+		return fmt.Errorf("read input dir %q: %w", prob.InputDir, err)
 	}
-	expectedData, err := os.ReadFile(prob.ExpectedOutputFile)
+	expectedFiles, err := readSortedTestCaseFiles(prob.ExpectedOutputDir)
 	if err != nil {
-		return fmt.Errorf("failed to read expected output file %q: %w", prob.ExpectedOutputFile, err)
+		return fmt.Errorf("read expected output dir %q: %w", prob.ExpectedOutputDir, err)
 	}
-
-	inN, outN := ioLineCounts(prob)
-	inputCases, err := groupTestCases(splitLines(string(inputData)), inN)
-	if err != nil {
-		return fmt.Errorf("input file %q: %w", prob.InputFile, err)
-	}
-	expectedCases, err := groupTestCases(splitLines(string(expectedData)), outN)
-	if err != nil {
-		return fmt.Errorf("expected output file %q: %w", prob.ExpectedOutputFile, err)
-	}
-	if len(inputCases) != len(expectedCases) {
-		return fmt.Errorf("test case count mismatch: %d input vs %d expected", len(inputCases), len(expectedCases))
+	if len(inputFiles) != len(expectedFiles) {
+		return fmt.Errorf("test case count mismatch: %d input vs %d expected", len(inputFiles), len(expectedFiles))
 	}
 
 	outputFields := outputIOFields(prob)
-
 	sub := &r.submission.Submission
-	for i, stdin := range inputCases {
-		result, runErr := r.runOnce(ctx, stdin)
+
+	for i, inputEntry := range inputFiles {
+		inputData, err := os.ReadFile(filepath.Join(prob.InputDir, inputEntry.Name()))
+		if err != nil {
+			return fmt.Errorf("read input file %q: %w", inputEntry.Name(), err)
+		}
+		if err := r.exec.WriteToSandbox(r.stdinFileName, inputData, 0644); err != nil {
+			return fmt.Errorf("write stdin to sandbox: %w", err)
+		}
+
+		result, runErr := r.runOnce(ctx, r.stdinFileName)
 		if runErr != nil {
 			return runErr
 		}
 		r.applyMeta(result)
 
+		expectedData, err := os.ReadFile(filepath.Join(prob.ExpectedOutputDir, expectedFiles[i].Name()))
+		if err != nil {
+			return fmt.Errorf("read expected output file %q: %w", expectedFiles[i].Name(), err)
+		}
+		expected := strings.TrimSpace(string(expectedData))
+
 		actual, err := r.getActualOutput()
 		if err != nil {
 			return err
 		}
-		expected := strings.TrimSpace(expectedCases[i])
 		userOutput := strings.TrimSpace(result.Stdout)
 
 		if !resultSucceeded(result) {
 			sub.Status = ClassifyFromMeta(result.Meta)
-			sub.ErrTestCaseInput = stdin
+			sub.ErrTestCaseInput = strings.TrimSpace(string(inputData))
 			sub.ErrTestCaseOutput = expected
 			sub.ActualOutput = actual
 			sub.UserOutput = userOutput
@@ -388,7 +371,7 @@ func (r *CodeRunner) executeSubmit(ctx context.Context) error {
 		}
 		if !CompareOutput(outputFields, expected, actual, prob.FloatPrecision) {
 			sub.Status = StatusWrongAnswer
-			sub.ErrTestCaseInput = stdin
+			sub.ErrTestCaseInput = strings.TrimSpace(string(inputData))
 			sub.ErrTestCaseOutput = expected
 			sub.ActualOutput = actual
 			sub.UserOutput = userOutput
@@ -502,4 +485,25 @@ func (r *CodeRunner) getActualOutput() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// readSortedTestCaseFiles reads all .txt files from dir and returns them sorted
+// by numeric base name (1.txt before 2.txt before 10.txt).
+func readSortedTestCaseFiles(dir string) ([]os.DirEntry, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var files []os.DirEntry
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".txt") {
+			files = append(files, e)
+		}
+	}
+	sort.Slice(files, func(i, j int) bool {
+		ni, _ := strconv.Atoi(strings.TrimSuffix(files[i].Name(), ".txt"))
+		nj, _ := strconv.Atoi(strings.TrimSuffix(files[j].Name(), ".txt"))
+		return ni < nj
+	})
+	return files, nil
 }

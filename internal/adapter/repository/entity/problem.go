@@ -24,14 +24,14 @@ type Problem struct {
 	MemoryLimit              int                         `gorm:"column:memory_limit"`
 	CreatedAt                time.Time                   `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt                time.Time                   `gorm:"column:updated_at;autoUpdateTime"`
-	InputFile                string                      `gorm:"column:input_file"`
+	InputDir                 string                      `gorm:"column:input_dir"`
 	CPUTimeLimit             *float64                    `gorm:"column:cpu_time_limit"`
 	CPUExtraTime             *float64                    `gorm:"column:cpu_extra_time"`
 	WallTimeLimit            *float64                    `gorm:"column:wall_time_limit"`
 	StackLimit               *int                        `gorm:"column:stack_limit"`
 	MaxProcessesAndOrThreads *int                        `gorm:"column:max_processes_and_or_threads"`
 	FloatPrecision           *int                        `gorm:"column:float_precision"`
-	ExpectedOutputFile       string                      `gorm:"column:expected_output_file"`
+	ExpectedOutputDir        string                      `gorm:"column:expected_output_dir"`
 	Hints                    datatypes.JSONSlice[string] `gorm:"column:hints;type:json"`
 	Tags                     []Tag                       `gorm:"many2many:problem_tags;joinForeignKey:problem_id;joinReferences:tag_id"`
 	// has-many on problem_id. No DB foreign key (matches existing convention);
@@ -72,14 +72,14 @@ func ProblemFromDomain(p *domain.Problem) *Problem {
 		SampleOutput:             p.SampleOutput,
 		TimeLimit:                p.TimeLimit,
 		MemoryLimit:              p.MemoryLimit,
-		InputFile:                p.InputFile,
+		InputDir:                 p.InputDir,
 		CPUTimeLimit:             p.CPUTimeLimit,
 		CPUExtraTime:             p.CPUExtraTime,
 		WallTimeLimit:            p.WallTimeLimit,
 		StackLimit:               p.StackLimit,
 		MaxProcessesAndOrThreads: p.MaxProcessesAndOrThreads,
 		FloatPrecision:           p.FloatPrecision,
-		ExpectedOutputFile:       p.ExpectedOutputFile,
+		ExpectedOutputDir:        p.ExpectedOutputDir,
 		Hints:                    p.Hints,
 		Tags:                     tags,
 		IOSchema:                 ioSchema,
@@ -119,14 +119,14 @@ func (p *Problem) ToDomain() *domain.Problem {
 		MemoryLimit:              p.MemoryLimit,
 		CreatedAt:                p.CreatedAt,
 		UpdatedAt:                p.UpdatedAt,
-		InputFile:                p.InputFile,
+		InputDir:                 p.InputDir,
 		CPUTimeLimit:             p.CPUTimeLimit,
 		CPUExtraTime:             p.CPUExtraTime,
 		WallTimeLimit:            p.WallTimeLimit,
 		StackLimit:               p.StackLimit,
 		MaxProcessesAndOrThreads: p.MaxProcessesAndOrThreads,
 		FloatPrecision:           p.FloatPrecision,
-		ExpectedOutputFile:       p.ExpectedOutputFile,
+		ExpectedOutputDir:        p.ExpectedOutputDir,
 		Hints:                    p.Hints,
 		Tags:                     tags,
 		IOSchema:                 ioSchema,

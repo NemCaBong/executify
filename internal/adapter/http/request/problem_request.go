@@ -25,8 +25,8 @@ type UpsertProblemRequest struct {
 	SampleOutput             string          `json:"sample_output"`
 	TimeLimit                int             `json:"time_limit" binding:"required"`
 	MemoryLimit              int             `json:"memory_limit" binding:"required"`
-	InputFile                string          `json:"input_file"`
-	ExpectedOutputFile       string          `json:"expected_output_file"`
+	InputDir                 string          `json:"input_dir"`
+	ExpectedOutputDir        string          `json:"expected_output_dir"`
 	CPUTimeLimit             *float64        `json:"cpu_time_limit"`
 	CPUExtraTime             *float64        `json:"cpu_extra_time"`
 	WallTimeLimit            *float64        `json:"wall_time_limit"`

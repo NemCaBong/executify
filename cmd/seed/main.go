@@ -97,8 +97,8 @@ type problemSeed struct {
 	StackLimit               *int                  `json:"stack_limit"`
 	MaxProcessesAndOrThreads *int                  `json:"max_processes_and_or_threads"`
 	FloatPrecision           *int                  `json:"float_precision"`
-	InputFile                string                `json:"input_file"`
-	ExpectedOutputFile       string                `json:"expected_output_file"`
+	InputDir                 string                `json:"input_dir"`
+	ExpectedOutputDir        string                `json:"expected_output_dir"`
 	Tags                     []string              `json:"tags"`
 	Hints                    []string              `json:"hints"`
 	IOSchema                 []ioSchemaSeed        `json:"io_schema"`
@@ -194,15 +194,15 @@ func seedProblems(db *gorm.DB, seeds []problemSeed, langIDs, tagIDs map[string]i
 	for _, s := range seeds {
 		probDir := filepath.Join(dataRoot, "problems", s.Slug)
 
-		// input/expected paths must be absolute because the worker reads
+		// directory paths must be absolute because the worker reads
 		// them from a different cwd.
-		inputPath := filepath.Join(probDir, s.InputFile)
-		expectedPath := filepath.Join(probDir, s.ExpectedOutputFile)
-		if _, err := os.Stat(inputPath); err != nil {
-			log.Fatalf("problem %q: input file missing: %v", s.Slug, err)
+		inputPath := filepath.Join(probDir, s.InputDir)
+		expectedPath := filepath.Join(probDir, s.ExpectedOutputDir)
+		if fi, err := os.Stat(inputPath); err != nil || !fi.IsDir() {
+			log.Fatalf("problem %q: input dir missing or not a directory: %v", s.Slug, err)
 		}
-		if _, err := os.Stat(expectedPath); err != nil {
-			log.Fatalf("problem %q: expected output file missing: %v", s.Slug, err)
+		if fi, err := os.Stat(expectedPath); err != nil || !fi.IsDir() {
+			log.Fatalf("problem %q: expected output dir missing or not a directory: %v", s.Slug, err)
 		}
 
 		slug := s.Slug
@@ -223,8 +223,8 @@ func seedProblems(db *gorm.DB, seeds []problemSeed, langIDs, tagIDs map[string]i
 			StackLimit:               s.StackLimit,
 			MaxProcessesAndOrThreads: s.MaxProcessesAndOrThreads,
 			FloatPrecision:           s.FloatPrecision,
-			InputFile:                inputPath,
-			ExpectedOutputFile:       expectedPath,
+			InputDir:                 inputPath,
+			ExpectedOutputDir:        expectedPath,
 			Hints:                    datatypes.NewJSONSlice(s.Hints),
 		}
 
@@ -236,7 +236,7 @@ func seedProblems(db *gorm.DB, seeds []problemSeed, langIDs, tagIDs map[string]i
 				"time_limit", "memory_limit",
 				"cpu_time_limit", "cpu_extra_time", "wall_time_limit",
 				"stack_limit", "max_processes_and_or_threads", "float_precision",
-				"input_file", "expected_output_file", "hints",
+				"input_dir", "expected_output_dir", "hints",
 			}),
 		}).Create(&prob).Error; err != nil {
 			log.Fatalf("upsert problem %q: %v", s.Slug, err)

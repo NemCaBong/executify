@@ -16,8 +16,8 @@
     "stack_limit": null,
     "max_processes_and_or_threads": null,
     "float_precision": null,
-    "input_file": "input.txt",
-    "expected_output_file": "expected_output.txt",
+    "input_dir": "inputs",
+    "expected_output_dir": "outputs",
     "tags": ["array", "hash-table", "easy"],
     "hints": [
       "Use a hash map: as you scan `nums`, check whether `target - x` was seen earlier.",

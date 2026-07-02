@@ -55,14 +55,14 @@ type Problem struct {
 	MemoryLimit              int              `json:"memory_limit"`
 	CreatedAt                time.Time        `json:"created_at"`
 	UpdatedAt                time.Time        `json:"updated_at"`
-	InputFile                string           `json:"input_file"`
+	InputDir                 string           `json:"input_dir"`
 	CPUTimeLimit             *float64         `json:"cpu_time_limit"`
 	CPUExtraTime             *float64         `json:"cpu_extra_time"`
 	WallTimeLimit            *float64         `json:"wall_time_limit"`
 	StackLimit               *int             `json:"stack_limit"`
 	MaxProcessesAndOrThreads *int             `json:"max_processes_and_or_threads"`
 	FloatPrecision           *int             `json:"float_precision"`
-	ExpectedOutputFile       string           `json:"expected_output_file"`
+	ExpectedOutputDir        string           `json:"expected_output_dir"`
 	Tags                     []Tag            `json:"tags"`
 	Hints                    []string         `json:"hints"`
 	IOSchema                 []ProblemIOField `json:"io_schema"`

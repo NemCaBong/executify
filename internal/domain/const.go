@@ -5,4 +5,5 @@ const (
 	StderrFileName       = "out.txt"
 	ActualOutputFileName = "actual_output.txt"
 	MetaFileName         = "meta.txt"
+	StdinFileName        = "stdin.txt"
 )

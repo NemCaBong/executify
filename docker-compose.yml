@@ -20,7 +20,6 @@ services:
       - "6379:6379"
     volumes:
       - docker-redis:/data
-    restart: unless-stopped
 
 volumes:
   docker-mysql:
