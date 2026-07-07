@@ -18,16 +18,35 @@
     "float_precision": null,
     "input_dir": "inputs",
     "expected_output_dir": "outputs",
-    "tags": ["array", "hash-table", "easy"],
+    "tags": [
+      "array",
+      "hash-table",
+      "easy"
+    ],
     "hints": [
       "Use a hash map: as you scan `nums`, check whether `target - x` was seen earlier.",
       "Indices are 0-based into `nums`, and the smaller index comes first.",
       "Values can be negative and up to ~1e9; prefer 64-bit integers in C++/Go."
     ],
     "io_schema": [
-      { "kind": "input",  "line_index": 0, "key_name": "nums",   "data_type": "int[]" },
-      { "kind": "input",  "line_index": 1, "key_name": "target", "data_type": "int" },
-      { "kind": "output", "line_index": 0, "key_name": "result", "data_type": "int[]" }
+      {
+        "kind": "input",
+        "line_index": 0,
+        "key_name": "nums",
+        "data_type": "int[]"
+      },
+      {
+        "kind": "input",
+        "line_index": 1,
+        "key_name": "target",
+        "data_type": "int"
+      },
+      {
+        "kind": "output",
+        "line_index": 0,
+        "key_name": "result",
+        "data_type": "int[]"
+      }
     ],
     "languages": [
       {
@@ -44,6 +63,74 @@
         "language": "Go 1.22",
         "wrapper": "package main\n\nimport (\n\t\"bufio\"\n\t\"encoding/json\"\n\t\"os\"\n\t\"strconv\"\n\t\"strings\"\n\t\"syscall\"\n)\n\n{{.}}\n\nfunc main() {\n\t// Move bash-supplied fd 3 to a private fd and close fd 3 so user code\n\t// can't poke at it. The duplicate is used to deliver the answer below.\n\tdupFd, _ := syscall.Dup(3)\n\t_ = syscall.Close(3)\n\tanswer := os.NewFile(uintptr(dupFd), \"answer\")\n\n\t// Two stdin lines for this test case: line 0 = nums, line 1 = target.\n\treader := bufio.NewReader(os.Stdin)\n\tnumsLine, _ := reader.ReadString('\\n')\n\ttargetLine, _ := reader.ReadString('\\n')\n\n\tvar nums []int64\n\t_ = json.Unmarshal([]byte(strings.TrimSpace(numsLine)), &nums)\n\ttarget, _ := strconv.ParseInt(strings.TrimSpace(targetLine), 10, 64)\n\n\tresult := solve(nums, target)\n\n\tpayload, _ := json.Marshal(result)\n\t_, _ = answer.Write(payload)\n\t_ = answer.Close()\n}\n",
         "template": "// Return the 0-based indices (i, j) with i < j of the two elements of nums\n// whose sum equals target. Exactly one valid answer exists.\nfunc solve(nums []int64, target int64) []int {\n\tseen := make(map[int64]int)\n\tfor i, x := range nums {\n\t\tif j, ok := seen[target-x]; ok {\n\t\t\treturn []int{j, i}\n\t\t}\n\t\tseen[x] = i\n\t}\n\treturn nil\n}\n"
+      }
+    ]
+  },
+  {
+    "slug": "ferris-wheel",
+    "name": "Ferris Wheel",
+    "difficulty": "easy",
+    "is_public": true,
+    "description": "There are `n` children who want to go on a Ferris wheel, and your task is to find a gondola for each child.\n\nEach gondola may hold one or two children, and the total weight in a gondola may not exceed `x`. You know the weight of every child. What is the minimum number of gondolas needed for the children?\n\nEach test case is two lines on stdin: line 1 holds the two integers `n` and `x` (the number of children and the maximum allowed weight), and line 2 holds the `n` integers `p_1, p_2, ..., p_n` (the weight of each child). The wrapper parses both lines and calls `solve(x, weights)`, where `weights` has length `n`.\n\nReturn the minimum number of gondolas as a single integer.\n\nConstraints: `1 <= n <= 2*10^5`, `1 <= x <= 10^9`, `1 <= p_i <= x`.",
+    "output_format": "A single integer: the minimum number of gondolas needed.",
+    "sample_input": "4 10\n7 2 3 9",
+    "sample_output": "3",
+    "time_limit": 1,
+    "memory_limit": 512,
+    "cpu_time_limit": null,
+    "cpu_extra_time": null,
+    "wall_time_limit": null,
+    "stack_limit": null,
+    "max_processes_and_or_threads": null,
+    "float_precision": null,
+    "input_dir": "inputs",
+    "expected_output_dir": "outputs",
+    "tags": [
+      "greedy",
+      "sorting",
+      "two-pointers"
+    ],
+    "hints": [
+      "Sort the children by weight first.",
+      "Two pointers: try to pair the lightest remaining child with the heaviest. If together they exceed x, the heaviest must ride alone.",
+      "Either way the heaviest child is seated each step, so the pointer from the top always moves inward.",
+      "Weights and x fit in 32-bit ints, but their sum can reach 2*10^9 — use 64-bit integers in C++/Go to be safe."
+    ],
+    "io_schema": [
+      {
+        "kind": "input",
+        "line_index": 0,
+        "key_name": "n_and_x",
+        "data_type": "int[]"
+      },
+      {
+        "kind": "input",
+        "line_index": 1,
+        "key_name": "weights",
+        "data_type": "int[]"
+      },
+      {
+        "kind": "output",
+        "line_index": 0,
+        "key_name": "result",
+        "data_type": "int"
+      }
+    ],
+    "languages": [
+      {
+        "language": "Python 3.12",
+        "wrapper": "from __future__ import annotations\nimport os\nimport sys\n\n# bash redirects the answer file onto fd 3 via `3>file`. Move it to a private\n# fd and close fd 3 so user code can't touch it. stdin carries one test case:\n# line 0 = \"n x\" (children count and the max gondola weight), line 1 = the n\n# children's weights. After solve() returns the minimum gondola count, the\n# wrapper writes it through the private fd.\n_answer_fd = os.dup(3)\nos.close(3)\n\n{{.}}\n\nif __name__ == \"__main__\":\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    x = int(data[1])\n    weights = [int(t) for t in data[2:2 + n]]\n    result = solve(x, weights)\n    os.write(_answer_fd, str(result).encode())\n    os.close(_answer_fd)\n",
+        "template": "def solve(x: int, weights: list[int]) -> int:\n    # weights[i] is the weight of child i. A gondola holds one or two children\n    # and its total weight may not exceed x. Return the minimum number of\n    # gondolas needed.\n    #\n    # Two-pointer greedy: sort the children, then repeatedly try to pair the\n    # lightest remaining child with the heaviest. If they fit together they\n    # share a gondola; otherwise the heaviest rides alone. Either way the\n    # heaviest is now seated, so advance from the top.\n    weights.sort()\n    i, j = 0, len(weights) - 1\n    gondolas = 0\n    while i <= j:\n        if i == j:\n            gondolas += 1\n            break\n        if weights[i] + weights[j] <= x:\n            i += 1\n        j -= 1\n        gondolas += 1\n    return gondolas\n"
+      },
+      {
+        "language": "C++17 (g++ 13)",
+        "wrapper": "#include <bits/stdc++.h>\n#include <unistd.h>\nusing namespace std;\n\n{{.}}\n\nint main() {\n    // Move bash-supplied fd 3 to a private slot and close fd 3 so user code\n    // can't touch it. The dup is what the wrapper uses to deliver the answer.\n    int _answer_fd = dup(3);\n    close(3);\n\n    // stdin holds one test case: \"n x\" on line 1, then the n weights.\n    long long n, x;\n    cin >> n >> x;\n    vector<long long> weights(n);\n    for (long long i = 0; i < n; ++i) cin >> weights[i];\n\n    long long result = solve(x, weights);\n\n    string payload = to_string(result);\n    write(_answer_fd, payload.c_str(), payload.size());\n    close(_answer_fd);\n    return 0;\n}\n",
+        "template": "// weights[i] is the weight of child i. A gondola holds one or two children and\n// its total weight may not exceed x. Return the minimum number of gondolas.\n//\n// Two-pointer greedy: sort the children, then repeatedly try to pair the\n// lightest remaining child with the heaviest. If they fit together they share a\n// gondola; otherwise the heaviest rides alone. Either way the heaviest is now\n// seated, so advance from the top.\nlong long solve(long long x, vector<long long> weights) {\n    sort(weights.begin(), weights.end());\n    long long i = 0, j = (long long)weights.size() - 1, gondolas = 0;\n    while (i <= j) {\n        if (i == j) { ++gondolas; break; }\n        if (weights[i] + weights[j] <= x) ++i;\n        --j;\n        ++gondolas;\n    }\n    return gondolas;\n}\n"
+      },
+      {
+        "language": "Go 1.22",
+        "wrapper": "package main\n\nimport (\n\t\"bufio\"\n\t\"os\"\n\t\"sort\"\n\t\"strconv\"\n\t\"syscall\"\n)\n\n// Keep \"sort\" imported so user solutions may use it; the reference template\n// below relies on it. Without a use here Go would reject solutions that don't.\nvar _ = sort.Ints\n\n{{.}}\n\nfunc main() {\n\t// Move bash-supplied fd 3 to a private fd and close fd 3 so user code\n\t// can't poke at it. The duplicate is used to deliver the answer below.\n\tdupFd, _ := syscall.Dup(3)\n\t_ = syscall.Close(3)\n\tanswer := os.NewFile(uintptr(dupFd), \"answer\")\n\n\t// stdin holds one test case: \"n x\" then the n weights. ScanWords tokenizes\n\t// across the line break; the buffer is enlarged for the 2e5-weight cases.\n\tsc := bufio.NewScanner(os.Stdin)\n\tsc.Buffer(make([]byte, 1024*1024), 64*1024*1024)\n\tsc.Split(bufio.ScanWords)\n\treadInt := func() int64 {\n\t\tsc.Scan()\n\t\tv, _ := strconv.ParseInt(sc.Text(), 10, 64)\n\t\treturn v\n\t}\n\n\tn := readInt()\n\tx := readInt()\n\tweights := make([]int64, n)\n\tfor i := int64(0); i < n; i++ {\n\t\tweights[i] = readInt()\n\t}\n\n\tresult := solve(x, weights)\n\n\t_, _ = answer.WriteString(strconv.FormatInt(result, 10))\n\t_ = answer.Close()\n}\n",
+        "template": "// weights[i] is the weight of child i. A gondola holds one or two children and\n// its total weight may not exceed x. Return the minimum number of gondolas.\n//\n// Two-pointer greedy: sort the children, then repeatedly try to pair the\n// lightest remaining child with the heaviest. If they fit together they share a\n// gondola; otherwise the heaviest rides alone. Either way the heaviest is now\n// seated, so advance from the top.\nfunc solve(x int64, weights []int64) int64 {\n\tsort.Slice(weights, func(a, b int) bool { return weights[a] < weights[b] })\n\ti, j := 0, len(weights)-1\n\tvar gondolas int64\n\tfor i <= j {\n\t\tif i == j {\n\t\t\tgondolas++\n\t\t\tbreak\n\t\t}\n\t\tif weights[i]+weights[j] <= x {\n\t\t\ti++\n\t\t}\n\t\tj--\n\t\tgondolas++\n\t}\n\treturn gondolas\n}\n"
       }
     ]
   }

@@ -1,5 +1,8 @@
 [
-  { "name": "Array",      "slug": "array" },
-  { "name": "Hash Table", "slug": "hash-table" },
-  { "name": "Easy",       "slug": "easy" }
+  { "name": "Array",         "slug": "array" },
+  { "name": "Hash Table",    "slug": "hash-table" },
+  { "name": "Easy",          "slug": "easy" },
+  { "name": "Greedy",        "slug": "greedy" },
+  { "name": "Sorting",       "slug": "sorting" },
+  { "name": "Two Pointers",  "slug": "two-pointers" }
 ]
