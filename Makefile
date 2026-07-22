@@ -45,13 +45,20 @@ logs:
 	docker compose logs -f
 
 ## --- migrations ------------------------------------------------------------
-# Requires golang-migrate: `go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest`
 
-migrate-up:
-	migrate -path $(MIGRATIONS_DIR) -database "$(DB_URL)" up
+GOBIN       := $(shell go env GOPATH)/bin
+MIGRATE_BIN := $(GOBIN)/migrate
 
-migrate-down:
-	migrate -path $(MIGRATIONS_DIR) -database "$(DB_URL)" down 1
+$(MIGRATE_BIN):
+	@echo "migrate CLI not found, installing via go install..."
+	go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	@echo "Installed to $(MIGRATE_BIN). Ensure $(GOBIN) is on your PATH."
+
+migrate-up: $(MIGRATE_BIN)
+	$(MIGRATE_BIN) -path $(MIGRATIONS_DIR) -database "$(DB_URL)" up
+
+migrate-down: $(MIGRATE_BIN)
+	$(MIGRATE_BIN) -path $(MIGRATIONS_DIR) -database "$(DB_URL)" down 1
 
 ## --- seed ------------------------------------------------------------------
 
