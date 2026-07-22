@@ -22,6 +22,7 @@ type Submission struct {
 	ExitSignal        *int       `gorm:"column:exit_signal"`
 	FinishedAt        *time.Time `gorm:"column:finished_at"`
 	TimeUsed          *int       `gorm:"column:time_used"`
+	WallTimeUsed      *int       `gorm:"column:wall_time_used"`
 	MemoryUsed        *int       `gorm:"column:memory_used"`
 	ErrTestCaseInput  string     `gorm:"column:err_test_case_input"`
 	ErrTestCaseOutput string     `gorm:"column:err_test_case_output"`
@@ -55,6 +56,7 @@ func (m *Submission) ToDomain() *domain.Submission {
 		ExitSignal:        m.ExitSignal,
 		FinishedAt:        m.FinishedAt,
 		TimeUsed:          m.TimeUsed,
+		WallTimeUsed:      m.WallTimeUsed,
 		MemoryUsed:        m.MemoryUsed,
 		ErrTestCaseInput:  m.ErrTestCaseInput,
 		ErrTestCaseOutput: m.ErrTestCaseOutput,
@@ -81,6 +83,7 @@ func FromDomain(d *domain.Submission) *Submission {
 		ExitSignal:        d.ExitSignal,
 		FinishedAt:        d.FinishedAt,
 		TimeUsed:          d.TimeUsed,
+		WallTimeUsed:      d.WallTimeUsed,
 		MemoryUsed:        d.MemoryUsed,
 		ErrTestCaseInput:  d.ErrTestCaseInput,
 		ErrTestCaseOutput: d.ErrTestCaseOutput,

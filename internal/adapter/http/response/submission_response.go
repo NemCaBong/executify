@@ -38,6 +38,7 @@ type SubmissionStatusResponse struct {
 	ExitCode          *int       `json:"exit_code"`
 	ExitSignal        *int       `json:"exit_signal"`
 	TimeUsed          *int       `json:"time_used"`
+	WallTimeUsed      *int       `json:"wall_time_used"`
 	MemoryUsed        *int       `json:"memory_used"`
 	ErrTestCaseInput  string     `json:"err_test_case_input"`
 	ErrTestCaseOutput string     `json:"err_test_case_output"`
@@ -59,6 +60,7 @@ func NewSubmissionStatusResponse(s *domain.Submission) *SubmissionStatusResponse
 		ExitCode:          s.ExitCode,
 		ExitSignal:        s.ExitSignal,
 		TimeUsed:          s.TimeUsed,
+		WallTimeUsed:      s.WallTimeUsed,
 		MemoryUsed:        s.MemoryUsed,
 		ErrTestCaseInput:  s.ErrTestCaseInput,
 		ErrTestCaseOutput: s.ErrTestCaseOutput,

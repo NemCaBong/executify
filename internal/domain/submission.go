@@ -92,7 +92,8 @@ type Submission struct {
 	ExitCode          *int             `json:"exit_code"`
 	ExitSignal        *int             `json:"exit_signal"`
 	FinishedAt        *time.Time       `json:"finished_at"`
-	TimeUsed          *int             `json:"time_used"`
+	TimeUsed          *int             `json:"time_used"`      // peak CPU time across test cases (ms)
+	WallTimeUsed      *int             `json:"wall_time_used"` // peak wall-clock time across test cases (ms)
 	MemoryUsed        *int             `json:"memory_used"`
 	ErrTestCaseInput  string           `json:"err_test_case_input"`
 	ErrTestCaseOutput string           `json:"err_test_case_output"`

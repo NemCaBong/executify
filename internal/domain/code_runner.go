@@ -176,7 +176,9 @@ func (r *CodeRunner) applyExecOptions() {
 	prob := &r.submission.Problem
 	memLimitKB := prob.MemoryLimit * 1024
 	cpuTime := float64(prob.TimeLimit)
-	wallTime := cpuTime * 2.0
+	// A problem's TimeLimit is the WALL-CLOCK limit (CSES-style). The CPU-time
+	// limit above is still enforced independently.
+	wallTime := float64(prob.TimeLimit)
 	processes := 10
 
 	if prob.CPUTimeLimit != nil {
@@ -234,6 +236,11 @@ func (r *CodeRunner) applyMeta(result *isolate.Result) {
 		timeMs := int(math.Round(result.Meta.Time * 1000))
 		if sub.TimeUsed == nil || timeMs > *sub.TimeUsed {
 			sub.TimeUsed = &timeMs
+		}
+
+		wallMs := int(math.Round(result.Meta.TimeWall * 1000))
+		if sub.WallTimeUsed == nil || wallMs > *sub.WallTimeUsed {
+			sub.WallTimeUsed = &wallMs
 		}
 
 		memKB := result.Meta.MaxRSS
