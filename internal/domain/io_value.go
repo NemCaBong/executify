@@ -36,8 +36,8 @@ func ParseLineValue(raw, dataType string) interface{} {
 
 	baseDataType, dimensions := splitDataType(dataType)
 
-	switch {
-	case dimensions == 0:
+	switch dimensions {
+	case 0:
 		return parsePrimitiveData(raw, baseDataType)
 	default:
 		// format as json

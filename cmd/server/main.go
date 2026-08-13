@@ -67,8 +67,9 @@ func main() {
 			r := setupRouter(app, []byte(cfg.JWTSecret))
 
 			srv := &http.Server{
-				Addr:    ":" + cfg.ServerPort,
-				Handler: r,
+				Addr:              ":" + cfg.ServerPort,
+				Handler:           r,
+				ReadHeaderTimeout: 10 * time.Second,
 			}
 
 			go func() {

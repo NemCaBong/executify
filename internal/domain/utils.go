@@ -7,7 +7,7 @@ import (
 
 func hashFileName(id int, s string) string {
 	h := fnv.New64a()
-	_, err := h.Write([]byte(fmt.Sprintf("%d:%s", id, s)))
+	_, err := fmt.Fprintf(h, "%d:%s", id, s)
 	if err != nil {
 		return ""
 	}

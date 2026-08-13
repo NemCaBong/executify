@@ -86,7 +86,7 @@ func (r *CodeRunner) logCommand(stage string, cmd *isolate.Command) {
 // (if configured). Notifier errors are intentionally swallowed: persistence
 // failure on an intermediate state must not abort the run.
 func (r *CodeRunner) emitStatus(ctx context.Context, s SubmissionStatus) {
-	r.submission.Submission.Status = s
+	r.submission.Status = s
 	if r.notifyStatus != nil {
 		_ = r.notifyStatus(ctx, s)
 	}
@@ -165,7 +165,7 @@ func (r *CodeRunner) compile(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("compile command failed: %w", err)
 	}
 	if result.ExitCode != 0 {
-		r.submission.Submission.Stderr = result.Stderr
+		r.submission.Stderr = result.Stderr
 		return false, nil
 	}
 	return true, nil
@@ -425,7 +425,7 @@ func (r *CodeRunner) Execute(ctx context.Context) error {
 			return err
 		}
 		if !ok {
-			r.submission.Submission.Status = StatusCompilationError
+			r.submission.Status = StatusCompilationError
 			return nil
 		}
 	}

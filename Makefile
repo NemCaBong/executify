@@ -10,7 +10,7 @@ endif
 MIGRATIONS_DIR := migrations
 DB_URL ?= mysql://$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)
 
-.PHONY: help build run worker-submit worker-run up down logs migrate-up migrate-down seed test lint tidy fmt clean \
+.PHONY: help build run worker-submit worker-run up down logs migrate-up migrate-down seed test lint tidy fmt vet vulncheck pre-push clean \
         docker-build docker-server docker-worker-submit docker-worker-run docker-seed docker-shell docker-clean
 
 help: ## Show this help.
@@ -76,8 +76,23 @@ lint:
 fmt:
 	gofmt -s -w .
 
+vet:
+	go vet ./...
+
+VULNCHECK_BIN := $(GOBIN)/govulncheck
+
+$(VULNCHECK_BIN):
+	@echo "govulncheck not found, installing via go install..."
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+
+vulncheck: $(VULNCHECK_BIN)
+	$(VULNCHECK_BIN) ./...
+
 tidy:
 	go mod tidy
+
+pre-push: fmt vet lint tidy test vulncheck ## Run every CI check locally before pushing
+	@git diff --exit-code -- go.mod go.sum || (echo "go.mod/go.sum changed by 'tidy' — review and commit before pushing" && exit 1)
 
 clean:
 	rm -rf bin

@@ -45,7 +45,7 @@ func (h *SubmitHandler) Handle(ctx context.Context, task *asynq.Task) error {
 		return fmt.Errorf("fetch submission: %w", err)
 	}
 
-	submissionDetail.Submission.Status = domain.StatusProcessing
+	submissionDetail.Status = domain.StatusProcessing
 	if err = h.submissionUC.Update(ctx, &submissionDetail.Submission); err != nil {
 		return fmt.Errorf("mark submission as processing: %w", err)
 	}
@@ -54,7 +54,7 @@ func (h *SubmitHandler) Handle(ctx context.Context, task *asynq.Task) error {
 
 	runner := domain.NewCodeRunner(submissionDetail, nil, nil, h.cfg.CodeRunnerConfig).
 		WithStatusNotifier(func(notifyCtx context.Context, status domain.SubmissionStatus) error {
-			submissionDetail.Submission.Status = status
+			submissionDetail.Status = status
 			return h.submissionUC.Update(notifyCtx, &submissionDetail.Submission)
 		})
 	if payload.EnableCommandLog {
